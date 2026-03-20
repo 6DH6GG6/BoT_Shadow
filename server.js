@@ -1,18 +1,18 @@
 require('dotenv').config();
 const express = require('express');
 const bodyParser = require('body-parser');
-const admin = require('./admin');
+const king = require('./king'); // الاتصال بـ king.js
 
 const app = express();
 app.use(bodyParser.json());
 
 const PORT = process.env.PORT || 3000;
-const TOKEN = process.env.TOKEN; // من متغيرات البيئة في Render
+const TOKEN = process.env.TOKEN;
 
-// Webhook endpoint
+// Webhook endpoint → كل شيء يمر لـ king.js
 app.post(`/webhook/${TOKEN}`, async (req, res) => {
     try {
-        await admin.handleUpdate(req.body);
+        await king.handle(req.body); // أي تحديث يذهب لـ king
         res.sendStatus(200);
     } catch (err) {
         console.error("Webhook error:", err);
