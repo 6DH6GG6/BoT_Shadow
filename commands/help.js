@@ -2,38 +2,44 @@ const axios = require('axios');
 
 module.exports = {
     name: "help",
-    async execute(chatId, args, message, commandsMap) {
+    async execute(chatId, args, message, commands) {
         const TOKEN = process.env.TOKEN;
-        if (!commandsMap) {
+
+        if (!commands) {
             return axios.post(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
                 chat_id: chatId,
                 text: "❌ خطأ داخلي: لم يتم تحميل الأوامر"
             });
         }
 
-        const perPage = 5;
+        // تحليل الصفحة: /help, /help2, /help3 ...
         let page = 1;
-
-        // التحقق من /help, /help2, /help3...
-        const helpArg = args[0] ? args[0].toLowerCase() : "";
-        const match = helpArg.match(/^help(\d+)$/);
-        if (match) page = parseInt(match[1]);
-
-        // جمع كل أسماء الأوامر
-        let allCommands = Array.from(commandsMap.values())
-            .map(cmd => cmd.name || "unknown");
-
-        // حذف /delet من الصفحة الأولى
-        if (page !== 2) {
-            allCommands = allCommands.filter(name => name.toLowerCase() !== "delet");
+        const match = message.text.match(/^\/help(\d*)$/);
+        if (match && match[1]) {
+            page = parseInt(match[1]);
         }
 
-        const totalPages = Math.ceil(allCommands.length / perPage);
-        if (page > totalPages) page = totalPages;
+        const perPage = 5;
+
+        // جمع جميع الأوامر
+        const allCommands = Array.from(commands.values())
+            .map(cmd => cmd.name || "unknown");
+
+        // تصفية أوامر delet من الصفحة الأولى
+        const filteredCommands = page === 1
+            ? allCommands.filter(name => name.toLowerCase() !== "delet")
+            : allCommands;
 
         const start = (page - 1) * perPage;
         const end = start + perPage;
-        const pageCommands = allCommands.slice(start, end);
+        const pageCommands = filteredCommands.slice(start, end);
+
+        if (pageCommands.length === 0) {
+            return axios.post(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
+                chat_id,
+                text: "❌ لا توجد أوامر في هذه الصفحة"
+            });
+        }
 
         let reply = "👑👑👑👑👑\n";
         pageCommands.forEach((cmdName, i) => {
