@@ -1,7 +1,6 @@
 {
-  "name": "telegram-bot-server",
+  "name": "telegram-webhook-bot",
   "version": "1.0.0",
-  "description": "Telegram bot with admin controller",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
