@@ -14,12 +14,11 @@ const foldersToLoad = [
     path.join(__dirname, 'dog')
 ];
 
-// 🔄 تحميل الملفات recursively (js + json)
+// 🔄 دالة تحميل الأوامر (js + json)
 function loadCommands(dir) {
     if (!fs.existsSync(dir)) return;
 
     const files = fs.readdirSync(dir);
-
     for (const file of files) {
         const fullPath = path.join(dir, file);
         const stat = fs.statSync(fullPath);
@@ -46,7 +45,7 @@ function loadCommands(dir) {
     }
 }
 
-// 🔹 تحميل المجلدات
+// 🔹 تحميل جميع المجلدات
 foldersToLoad.forEach(folder => loadCommands(folder));
 
 // 🔹 تحميل ملفات root
@@ -63,7 +62,6 @@ fs.readdirSync(__dirname).forEach(file => {
             delete require.cache[require.resolve(fullPath)];
 
             let cmd = { name: file, execute: null };
-
             if (file.endsWith('.js')) {
                 const required = require(fullPath);
                 if (required.name && required.execute) cmd = required;
@@ -99,34 +97,48 @@ async function autoReply(chatId, text, type) {
 // 🔥 التعامل مع التحديثات
 async function handleUpdate(update) {
     try {
+        let message, chatId, text;
+
+        // 📩 الرسائل
         if (update.message) {
-            const message = update.message;
-            const chatId = message.chat.id;
-            const text = message.text || "";
-
-            const args = text.trim().split(/\s+/);
-            const commandName = text.startsWith("/")
-                ? args[0].slice(1).toLowerCase()
-                : null;
-
-            console.log("📌 Command:", commandName);
-            console.log("📦 Commands:", Array.from(commands.keys()));
-
-            // ✅ تنفيذ أي أمر موجود، تمرير Map commands
-            if (commandName && commands.has(commandName)) {
-                const cmd = commands.get(commandName);
-                if (cmd.execute) await cmd.execute(chatId, args, message, commands);
-                else await autoReply(chatId, `✅ الأمر موجود: /${commandName}`, message.chat.type);
-            } else if (commandName) {
-                await autoReply(chatId, `❌ الأمر /${commandName} غير موجود`, message.chat.type);
-            } else {
-                await autoReply(chatId, text, message.chat.type);
-            }
-
-        } else if (update.channel_post) {
-            const message = update.channel_post;
-            await autoReply(message.chat.id, message.text || "", "channel");
+            message = update.message;
+            chatId = message.chat.id;
+            text = message.text || "";
         }
+        // 📢 القنوات
+        else if (update.channel_post) {
+            message = update.channel_post;
+            chatId = message.chat.id;
+            text = message.text || "";
+        } else return;
+
+        const args = text.trim().split(/\s+/);
+        const commandName = text.startsWith("/") ? args[0].slice(1).toLowerCase() : null;
+
+        console.log("📌 Command:", commandName);
+        console.log("📦 Commands:", Array.from(commands.keys()));
+
+        // ✅ تنفيذ الأوامر الموجودة
+        if (commandName && commands.has(commandName)) {
+            const cmd = commands.get(commandName);
+            if (cmd.execute) {
+                // تمرير commands فقط لأوامر help
+                if (cmd.name.toLowerCase() === "help") {
+                    await cmd.execute(chatId, args, message, commands);
+                } else {
+                    await cmd.execute(chatId, args, message);
+                }
+            } else {
+                await autoReply(chatId, `✅ الأمر موجود: /${commandName}`, message.chat.type);
+            }
+        }
+        // ⚠️ الأمر غير موجود
+        else if (commandName) {
+            await autoReply(chatId, `❌ الأمر /${commandName} غير موجود`, message.chat.type);
+        } else {
+            await autoReply(chatId, text, message.chat.type);
+        }
+
     } catch (err) {
         console.error("❌ Handle update error:", err);
     }
