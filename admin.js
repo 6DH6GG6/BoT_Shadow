@@ -1,62 +1,57 @@
 const fs = require('fs');
 const path = require('path');
+const axios = require('axios');
 
 const commands = new Map();
 
-// 📂 تحميل كل الملفات من مجلد معين
-function loadFiles(dir) {
+// 📂 تحميل كل ملفات js داخل مجلد commands (Recursive)
+function loadCommands(dir) {
     const files = fs.readdirSync(dir);
 
     for (let file of files) {
         const fullPath = path.join(dir, file);
         const stat = fs.statSync(fullPath);
 
-        // لو مجلد → ادخل فيه (Recursive)
         if (stat.isDirectory()) {
-            loadFiles(fullPath);
-        }
-
-        // لو ملف js
-        else if (file.endsWith('.js')) {
-            const command = require(fullPath);
-
-            if (command.name && command.execute) {
-                commands.set(command.name, command);
-                console.log(`✅ Loaded: ${command.name}`);
+            loadCommands(fullPath);
+        } else if (file.endsWith('.js')) {
+            const cmd = require(fullPath);
+            if (cmd.name && cmd.execute) {
+                commands.set(cmd.name, cmd);
+                console.log(`✅ Loaded command: ${cmd.name}`);
             } else {
-                console.log(`⚠️ تجاهل: ${file}`);
+                console.log(`⚠️ Ignored file: ${file}`);
             }
         }
     }
 }
 
-// 📦 تحميل الأوامر من كل المجلدات
-loadFiles(path.join(__dirname, 'commands'));
+// تحميل أوامر من commands/
+loadCommands(path.join(__dirname, 'commands'));
 
-
-// 🎯 التعامل مع التحديثات
 async function handleUpdate(update) {
     if (!update.message) return;
 
     const message = update.message;
-    const text = message.text || "";
     const chatId = message.chat.id;
-
+    const text = message.text || "";
     const args = text.split(" ");
-    const commandName = args[0].replace("/", "");
+    const commandName = args[0].replace("/", "").toLowerCase();
 
     try {
-        // إذا أمر
         if (commands.has(commandName)) {
             await commands.get(commandName).execute(chatId, args, message);
-        } 
-        // غير ذلك → شات
-        else if (commands.has("chat")) {
+        } else if (commands.has("chat")) {
             await commands.get("chat").execute(chatId, args, message);
+        } else {
+            // fallback
+            await axios.post(`https://api.telegram.org/bot${process.env.TOKEN}/sendMessage`, {
+                chat_id: chatId,
+                text: "البوت جاهز لكن لا يوجد أمر معروف، جرب /start"
+            });
         }
-
     } catch (err) {
-        console.error("❌ Error:", err);
+        console.error("Handle update error:", err);
     }
 }
 
