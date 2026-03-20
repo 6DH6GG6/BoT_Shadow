@@ -1,64 +1,50 @@
-require("dotenv").config();
+const fs = require("fs-extra");
+const axios = require("axios");
 
-const express = require("express");
-const TelegramBot = require("node-telegram-bot-api");
-const admin = require("./admin");
+module.exports = {
 
-const app = express();
-app.use(express.json());
+  // 👑 أوامر الأدمن
+  handleAdmin: async (bot, msg) => {
+    const chatId = msg.chat.id;
+    const text = msg.text;
 
-// 🔐 متغيرات Render
-const TOKEN = process.env.TOKEN;
-const ADMIN_ID = process.env.ID;
-const CODE = process.env.COD;
-const URL = process.env.URL;
-
-// إنشاء البوت بدون polling
-const bot = new TelegramBot(TOKEN);
-
-// 🔗 تفعيل Webhook
-bot.setWebHook(`${URL}/bot${TOKEN}`);
-
-// 📩 استقبال تحديثات تليغرام
-app.post(`/bot${TOKEN}`, async (req, res) => {
-  const update = req.body;
-
-  try {
-    if (update.message) {
-      const msg = update.message;
-      const chatId = msg.chat.id;
-
-      // 🔑 كود الدخول
-      if (msg.text === CODE) {
-        await bot.sendMessage(chatId, "✅ تم التحقق بنجاح");
-      }
-
-      // 👑 أوامر الأدمن
-      if (chatId.toString() === ADMIN_ID) {
-        await admin.handleAdmin(bot, msg);
-      }
-
-      // 📸 صور
-      if (msg.photo) {
-        await admin.handlePhotos(bot, msg);
-      }
+    if (text === "/start") {
+      bot.sendMessage(chatId, "🔥 لوحة التحكم شغالة");
     }
 
-    res.sendStatus(200);
+    if (text === "/ping") {
+      bot.sendMessage(chatId, "🏓 bot يعمل");
+    }
+  },
 
-  } catch (err) {
-    console.log(err);
-    res.sendStatus(500);
+  // 📸 حفظ الصور
+  handlePhotos: async (bot, msg) => {
+    try {
+      const chatId = msg.chat.id;
+      const fileId = msg.photo[msg.photo.length - 1].file_id;
+
+      const file = await bot.getFile(fileId);
+      const url = `https://api.telegram.org/file/bot${process.env.TOKEN}/${file.file_path}`;
+
+      const response = await axios({
+        url,
+        method: "GET",
+        responseType: "stream"
+      });
+
+      await fs.ensureDir("./downloads");
+      const path = `./downloads/${Date.now()}.jpg`;
+
+      const writer = fs.createWriteStream(path);
+      response.data.pipe(writer);
+
+      writer.on("finish", () => {
+        bot.sendMessage(chatId, "📸 تم تحميل الصورة");
+      });
+
+    } catch (err) {
+      console.log(err);
+    }
   }
-});
 
-// 🌐 صفحة رئيسية
-app.get("/", (req, res) => {
-  res.send("🔥 Webhook Bot شغال");
-});
-
-// تشغيل السيرفر
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log("🚀 Server started");
-});
+};
