@@ -21,7 +21,6 @@ module.exports = {
         }
 
         const fileName = args[1];
-
         if (!fileName) {
             return axios.post(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
                 chat_id: chatId,
@@ -29,9 +28,8 @@ module.exports = {
             });
         }
 
-        // 🛑 حماية
-        const blocked = ['.env', 'node_modules'];
-
+        // 🛑 حماية ضد الملفات الحساسة
+        const blocked = ['.env', 'node_modules', 'package-lock.json'];
         if (blocked.includes(fileName)) {
             return axios.post(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
                 chat_id: chatId,
@@ -39,15 +37,34 @@ module.exports = {
             });
         }
 
-        const filePath = path.join(__dirname, '..', fileName);
+        // 🔹 دالة للبحث عن الملف في أي مكان داخل المشروع
+        function findFileRecursive(baseDir, targetFile) {
+            const files = fs.readdirSync(baseDir);
+            for (const file of files) {
+                const fullPath = path.join(baseDir, file);
+                const stat = fs.statSync(fullPath);
 
-        if (!fs.existsSync(filePath)) {
+                if (stat.isDirectory()) {
+                    const result = findFileRecursive(fullPath, targetFile);
+                    if (result) return result;
+                } else if (file === targetFile) {
+                    return fullPath;
+                }
+            }
+            return null;
+        }
+
+        const projectRoot = path.resolve(__dirname, '..'); // جذر المشروع
+        const filePath = findFileRecursive(projectRoot, fileName);
+
+        if (!filePath) {
             return axios.post(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
                 chat_id: chatId,
-                text: "❌ الملف غير موجود"
+                text: "❌ الملف غير موجود في المشروع"
             });
         }
 
+        // 🔹 إرسال الملف
         try {
             const form = new FormData();
             form.append('chat_id', chatId);
@@ -58,9 +75,12 @@ module.exports = {
                 form,
                 { headers: form.getHeaders() }
             );
-
         } catch (err) {
             console.log(err);
+            await axios.post(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
+                chat_id: chatId,
+                text: "❌ خطأ أثناء إرسال الملف"
+            });
         }
     }
 };
