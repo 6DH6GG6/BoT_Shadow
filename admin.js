@@ -4,7 +4,7 @@ const axios = require('axios');
 
 const commands = new Map();
 
-// 🔹 المجلدات التي تريد تحميلها بالترتيب
+// 🔹 المجلدات التي تريد تحميلها
 const foldersToLoad = [
     path.join(__dirname, 'commands'),
     path.join(__dirname, 'image'),
@@ -14,7 +14,7 @@ const foldersToLoad = [
     path.join(__dirname, 'dog')
 ];
 
-// 🔄 دالة تحميل الملفات recursively
+// 🔄 تحميل الملفات recursively
 function loadCommands(dir) {
     if (!fs.existsSync(dir)) return;
 
@@ -25,27 +25,27 @@ function loadCommands(dir) {
         const stat = fs.statSync(fullPath);
 
         if (stat.isDirectory()) {
-            loadCommands(fullPath); // الدخول للمجلد الفرعي
+            loadCommands(fullPath);
         } else if (file.endsWith('.js')) {
             try {
                 const cmd = require(fullPath);
                 if (cmd.name && cmd.execute) {
                     commands.set(cmd.name.toLowerCase(), cmd);
-                    console.log(`✅ Loaded command: ${cmd.name} from ${fullPath}`);
+                    console.log(`✅ Loaded: ${cmd.name}`);
                 } else {
-                    console.log(`⚠️ Ignored file (missing name/execute): ${file}`);
+                    console.log(`⚠️ Ignored: ${file}`);
                 }
             } catch (err) {
-                console.log(`❌ Error loading file ${file}: ${err.message}`);
+                console.log(`❌ Error loading ${file}: ${err.message}`);
             }
         }
     }
 }
 
-// 🔹 تحميل جميع المجلدات المحددة
+// 🔹 تحميل المجلدات
 foldersToLoad.forEach(folder => loadCommands(folder));
 
-// 🔹 تحميل أي ملفات .js بجانب server.js (باستثناء admin.js و server.js)
+// 🔹 تحميل ملفات root
 fs.readdirSync(__dirname).forEach(file => {
     const fullPath = path.join(__dirname, file);
     const stat = fs.statSync(fullPath);
@@ -55,38 +55,70 @@ fs.readdirSync(__dirname).forEach(file => {
             const cmd = require(fullPath);
             if (cmd.name && cmd.execute) {
                 commands.set(cmd.name.toLowerCase(), cmd);
-                console.log(`✅ Loaded command: ${cmd.name} from root`);
-            } else {
-                console.log(`⚠️ Ignored root file (missing name/execute): ${file}`);
+                console.log(`✅ Loaded root: ${cmd.name}`);
             }
-        } catch (err) {
-            console.log(`❌ Error loading root file ${file}: ${err.message}`);
-        }
+        } catch {}
     }
 });
 
-// 🔹 التعامل مع التحديثات
-async function handleUpdate(update) {
-    if (!update.message) return;
 
-    const message = update.message;
-    const chatId = message.chat.id;
-    const text = message.text || "";
-    const args = text.split(" ");
-    const commandName = args[0].replace("/", "").toLowerCase();
+// 🧠 دالة الرد التلقائي
+async function autoReply(chatId, text, type) {
+    const TOKEN = process.env.TOKEN;
+
+    let reply;
+
+    if (type === "private") {
+        reply = `👤 خاص:\n${text}`;
+    } else if (type === "group" || type === "supergroup") {
+        reply = `👥 مجموعة:\n${text}`;
+    } else if (type === "channel") {
+        reply = `📢 قناة:\n${text}`;
+    } else {
+        reply = text;
+    }
 
     try {
-        if (commands.has(commandName)) {
-            await commands.get(commandName).execute(chatId, args, message);
-        } else if (commands.has("chat")) {
-            await commands.get("chat").execute(chatId, args, message);
-        } else {
-            // fallback
-            await axios.post(`https://api.telegram.org/bot${process.env.TOKEN}/sendMessage`, {
-                chat_id: chatId,
-                text: "البوت جاهز لكن لا يوجد أمر معروف، جرب /start"
-            });
+        await axios.post(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
+            chat_id: chatId,
+            text: reply
+        });
+    } catch (err) {
+        console.log("❌ Send error:", err.response?.data || err.message);
+    }
+}
+
+
+// 🔥 التعامل مع التحديثات (مهم)
+async function handleUpdate(update) {
+    try {
+
+        // 📩 رسائل (خاص + مجموعات)
+        if (update.message) {
+            const message = update.message;
+            const chatId = message.chat.id;
+            const text = message.text || "";
+            const args = text.split(" ");
+            const commandName = args[0].replace("/", "").toLowerCase();
+
+            // ✅ تنفيذ أمر
+            if (commands.has(commandName)) {
+                await commands.get(commandName).execute(chatId, args, message);
+            } else {
+                // 🔥 رد تلقائي
+                await autoReply(chatId, text, message.chat.type);
+            }
         }
+
+        // 📢 القنوات
+        else if (update.channel_post) {
+            const message = update.channel_post;
+            const chatId = message.chat.id;
+            const text = message.text || "";
+
+            await autoReply(chatId, text, "channel");
+        }
+
     } catch (err) {
         console.error("Handle update error:", err);
     }
