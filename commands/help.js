@@ -12,18 +12,26 @@ module.exports = {
             });
         }
 
-        // تحديد الصفحة (help = 1، help2 = 2)
-        const page = args[0] === "help2" ? 2 : 1;
-        const perPage = 5;
+        const perPage = 5; // عدد الأوامر لكل صفحة
+
+        // تحديد رقم الصفحة من /help أو /help2 أو /help3 ...
+        let page = 1;
+        const helpArg = args[0] ? args[0].toLowerCase() : "";
+        const match = helpArg.match(/^help(\d+)$/);
+        if (match) page = parseInt(match[1]);
 
         // جمع جميع الأوامر
         let allCommands = Array.from(commands.values())
             .map(cmd => cmd.name || "unknown");
 
-        // تصفية الأوامر الإدارية من الصفحة الأولى
-        if (page === 1) {
-            allCommands = allCommands.filter(name => name.toLowerCase() !== "delet");
-        }
+        // تصفية /delet ليظهر فقط في الصفحة 2
+        allCommands = allCommands.filter(name => {
+            if (name.toLowerCase() === "delet" && page !== 2) return false;
+            return true;
+        });
+
+        const totalPages = Math.ceil(allCommands.length / perPage);
+        if (page > totalPages) page = totalPages;
 
         const start = (page - 1) * perPage;
         const end = start + perPage;
