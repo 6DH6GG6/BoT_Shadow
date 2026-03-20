@@ -4,7 +4,7 @@ const axios = require('axios');
 
 const commands = new Map();
 
-// 🔹 المجلدات التي تريد تحميلها
+// 🔹 المجلدات
 const foldersToLoad = [
     path.join(__dirname, 'commands'),
     path.join(__dirname, 'image'),
@@ -28,12 +28,14 @@ function loadCommands(dir) {
             loadCommands(fullPath);
         } else if (file.endsWith('.js')) {
             try {
+                delete require.cache[require.resolve(fullPath)]; // 🔥 منع الكاش
                 const cmd = require(fullPath);
+
                 if (cmd.name && cmd.execute) {
                     commands.set(cmd.name.toLowerCase(), cmd);
                     console.log(`✅ Loaded: ${cmd.name}`);
                 } else {
-                    console.log(`⚠️ Ignored: ${file}`);
+                    console.log(`⚠️ Ignored (no name/execute): ${file}`);
                 }
             } catch (err) {
                 console.log(`❌ Error loading ${file}: ${err.message}`);
@@ -50,19 +52,26 @@ fs.readdirSync(__dirname).forEach(file => {
     const fullPath = path.join(__dirname, file);
     const stat = fs.statSync(fullPath);
 
-    if (stat.isFile() && file.endsWith('.js') && !['server.js', 'admin.js'].includes(file)) {
+    if (
+        stat.isFile() &&
+        file.endsWith('.js') &&
+        !['server.js', 'admin.js'].includes(file)
+    ) {
         try {
+            delete require.cache[require.resolve(fullPath)];
             const cmd = require(fullPath);
+
             if (cmd.name && cmd.execute) {
                 commands.set(cmd.name.toLowerCase(), cmd);
                 console.log(`✅ Loaded root: ${cmd.name}`);
             }
-        } catch {}
+        } catch (err) {
+            console.log(`❌ Error loading root file ${file}: ${err.message}`);
+        }
     }
 });
 
-
-// 🧠 دالة الرد التلقائي
+// 🧠 الرد التلقائي
 async function autoReply(chatId, text, type) {
     const TOKEN = process.env.TOKEN;
 
@@ -88,24 +97,30 @@ async function autoReply(chatId, text, type) {
     }
 }
 
-
-// 🔥 التعامل مع التحديثات (مهم)
+// 🔥 المعالجة الرئيسية
 async function handleUpdate(update) {
     try {
 
-        // 📩 رسائل (خاص + مجموعات)
+        // 📩 الرسائل (خاص + مجموعات)
         if (update.message) {
             const message = update.message;
             const chatId = message.chat.id;
             const text = message.text || "";
-            const args = text.split(" ");
-            const commandName = args[0].replace("/", "").toLowerCase();
 
-            // ✅ تنفيذ أمر
-            if (commands.has(commandName)) {
+            const args = text.trim().split(/\s+/);
+
+            // ✅ تحليل الأمر بشكل صحيح
+            const commandName = text.startsWith("/")
+                ? args[0].slice(1).toLowerCase()
+                : null;
+
+            console.log("📌 Command:", commandName);
+            console.log("📦 Commands:", Array.from(commands.keys()));
+
+            // ✅ تنفيذ الأمر
+            if (commandName && commands.has(commandName)) {
                 await commands.get(commandName).execute(chatId, args, message);
             } else {
-                // 🔥 رد تلقائي
                 await autoReply(chatId, text, message.chat.type);
             }
         }
@@ -120,7 +135,7 @@ async function handleUpdate(update) {
         }
 
     } catch (err) {
-        console.error("Handle update error:", err);
+        console.error("❌ Handle update error:", err);
     }
 }
 
