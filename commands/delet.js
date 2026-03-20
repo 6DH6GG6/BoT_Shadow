@@ -14,28 +14,27 @@ module.exports = {
             });
         }
 
-        const cmdText = message.text.toLowerCase();
+        const commandText = message.text;
 
-        // قائمة أوامر الحذف (تظهر ضمن /help2)
-        if (cmdText.startsWith("/helpdelete")) {
-            const helpText = `📌 قائمة أوامر الحذف:\n
-1️⃣ /delete → حذف رسالة تم الرد عليها
-2️⃣ /deleteall → حذف جميع رسائلك المصرح بها
-3️⃣ /deletefrom_<USERID> → حذف رسائل مستخدم محدد
-4️⃣ /deletewhinall → حذف كل رسائل كل المستخدمين`;
+        if (commandText.startsWith("/delet")) {
+            let text = "📌 قائمة أوامر الحذف:\n\n";
+            text += "1️⃣ /delete → حذف رسالة تم الرد عليها\n";
+            text += "2️⃣ /deleteAll → حذف جميع رسائلك المصرح بها\n";
+            text += "3️⃣ /deleteFrom_<USERID> → حذف رسائل مستخدم محدد\n";
+            text += "4️⃣ /deleteWhinAll → حذف كل رسائل جميع المستخدمين\n";
+
             return axios.post(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
                 chat_id,
-                text: helpText
+                text
             });
         }
 
-        // حذف رسالة الرد
-        if (cmdText.startsWith("/delete")) {
-            if (!message.reply_to_message)
-                return axios.post(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
-                    chat_id,
-                    text: "❌ الرجاء الرد على الرسالة المراد حذفها مع /delete"
-                });
+        if (commandText.startsWith("/delete")) {
+            if (!message.reply_to_message) return axios.post(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
+                chat_id,
+                text: "❌ الرجاء الرد على الرسالة المراد حذفها"
+            });
+
             const message_id = message.reply_to_message.message_id;
             try {
                 await axios.post(`https://api.telegram.org/bot${TOKEN}/deleteMessage`, {
@@ -48,30 +47,27 @@ module.exports = {
             return;
         }
 
-        // حذف جميع رسائل صاحب الأمر (placeholder)
-        if (cmdText.startsWith("/deleteall")) {
+        if (commandText.startsWith("/deleteAll")) {
             return axios.post(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
                 chat_id,
                 text: "✅ سيتم حذف جميع رسائلك المصرح بها (حسب التخزين)"
             });
         }
 
-        // حذف رسائل مستخدم محدد
-        if (cmdText.startsWith("/deletefrom")) {
-            const targetId = cmdText.split("_")[1];
-            if (!targetId)
-                return axios.post(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
-                    chat_id,
-                    text: "❌ يرجى تحديد USERID: /deletefrom_<USERID>"
-                });
+        if (commandText.startsWith("/deleteFrom")) {
+            const targetId = commandText.split("_")[1];
+            if (!targetId) return axios.post(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
+                chat_id,
+                text: "❌ يرجى تحديد USERID: /deleteFrom_<USERID>"
+            });
+
             return axios.post(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
                 chat_id,
                 text: `✅ سيتم حذف جميع رسائل المستخدم ${targetId} (حسب التخزين)`
             });
         }
 
-        // حذف كل الرسائل من كل المستخدمين
-        if (cmdText.startsWith("/deletewhinall")) {
+        if (commandText.startsWith("/deleteWhinAll")) {
             return axios.post(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
                 chat_id,
                 text: "✅ سيتم حذف جميع رسائل كل المستخدمين (حسب التخزين)"
