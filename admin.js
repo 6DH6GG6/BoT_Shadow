@@ -4,7 +4,7 @@ const axios = require('axios');
 
 const commands = new Map();
 
-// 🔹 المجلدات
+// 🔹 المجلدات التي تريد تحميلها
 const foldersToLoad = [
     path.join(__dirname, 'commands'),
     path.join(__dirname, 'image'),
@@ -14,7 +14,7 @@ const foldersToLoad = [
     path.join(__dirname, 'dog')
 ];
 
-// 🔄 تحميل الملفات recursively
+// 🔄 دالة تحميل الملفات recursively (js + json)
 function loadCommands(dir) {
     if (!fs.existsSync(dir)) return;
 
@@ -26,17 +26,19 @@ function loadCommands(dir) {
 
         if (stat.isDirectory()) {
             loadCommands(fullPath);
-        } else if (file.endsWith('.js')) {
+        } else if (file.endsWith('.js') || file.endsWith('.json')) {
             try {
-                delete require.cache[require.resolve(fullPath)]; // 🔥 منع الكاش
-                const cmd = require(fullPath);
+                delete require.cache[require.resolve(fullPath)];
 
-                if (cmd.name && cmd.execute) {
-                    commands.set(cmd.name.toLowerCase(), cmd);
-                    console.log(`✅ Loaded: ${cmd.name}`);
-                } else {
-                    console.log(`⚠️ Ignored (no name/execute): ${file}`);
+                let cmd = { name: file, execute: null };
+
+                if (file.endsWith('.js')) {
+                    const required = require(fullPath);
+                    if (required.name && required.execute) cmd = required;
                 }
+
+                commands.set(cmd.name.toLowerCase(), cmd);
+                console.log(`✅ Loaded command: ${cmd.name}`);
             } catch (err) {
                 console.log(`❌ Error loading ${file}: ${err.message}`);
             }
@@ -54,17 +56,21 @@ fs.readdirSync(__dirname).forEach(file => {
 
     if (
         stat.isFile() &&
-        file.endsWith('.js') &&
+        (file.endsWith('.js') || file.endsWith('.json')) &&
         !['server.js', 'admin.js'].includes(file)
     ) {
         try {
             delete require.cache[require.resolve(fullPath)];
-            const cmd = require(fullPath);
 
-            if (cmd.name && cmd.execute) {
-                commands.set(cmd.name.toLowerCase(), cmd);
-                console.log(`✅ Loaded root: ${cmd.name}`);
+            let cmd = { name: file, execute: null };
+
+            if (file.endsWith('.js')) {
+                const required = require(fullPath);
+                if (required.name && required.execute) cmd = required;
             }
+
+            commands.set(cmd.name.toLowerCase(), cmd);
+            console.log(`✅ Loaded root command: ${cmd.name}`);
         } catch (err) {
             console.log(`❌ Error loading root file ${file}: ${err.message}`);
         }
@@ -74,18 +80,11 @@ fs.readdirSync(__dirname).forEach(file => {
 // 🧠 الرد التلقائي
 async function autoReply(chatId, text, type) {
     const TOKEN = process.env.TOKEN;
+    let reply = text;
 
-    let reply;
-
-    if (type === "private") {
-        reply = `👤 خاص:\n${text}`;
-    } else if (type === "group" || type === "supergroup") {
-        reply = `👥 مجموعة:\n${text}`;
-    } else if (type === "channel") {
-        reply = `📢 قناة:\n${text}`;
-    } else {
-        reply = text;
-    }
+    if (type === "private") reply = `👤 خاص:\n${text}`;
+    else if (type === "group" || type === "supergroup") reply = `👥 مجموعة:\n${text}`;
+    else if (type === "channel") reply = `📢 قناة:\n${text}`;
 
     try {
         await axios.post(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
@@ -97,19 +96,15 @@ async function autoReply(chatId, text, type) {
     }
 }
 
-// 🔥 المعالجة الرئيسية
+// 🔥 التعامل مع التحديثات
 async function handleUpdate(update) {
     try {
-
-        // 📩 الرسائل (خاص + مجموعات)
         if (update.message) {
             const message = update.message;
             const chatId = message.chat.id;
             const text = message.text || "";
 
             const args = text.trim().split(/\s+/);
-
-            // ✅ تحليل الأمر بشكل صحيح
             const commandName = text.startsWith("/")
                 ? args[0].slice(1).toLowerCase()
                 : null;
@@ -117,23 +112,22 @@ async function handleUpdate(update) {
             console.log("📌 Command:", commandName);
             console.log("📦 Commands:", Array.from(commands.keys()));
 
-            // ✅ تنفيذ الأمر
+            // ✅ تنفيذ أي أمر موجود
             if (commandName && commands.has(commandName)) {
-                await commands.get(commandName).execute(chatId, args, message);
+                const cmd = commands.get(commandName);
+                if (cmd.execute) await cmd.execute(chatId, args, message);
+                else await autoReply(chatId, `✅ الأمر موجود: /${commandName}`, message.chat.type);
+            } else if (commandName) {
+                // ⚠️ الأمر غير موجود
+                await autoReply(chatId, `❌ الأمر /${commandName} غير موجود`, message.chat.type);
             } else {
                 await autoReply(chatId, text, message.chat.type);
             }
-        }
 
-        // 📢 القنوات
-        else if (update.channel_post) {
+        } else if (update.channel_post) {
             const message = update.channel_post;
-            const chatId = message.chat.id;
-            const text = message.text || "";
-
-            await autoReply(chatId, text, "channel");
+            await autoReply(message.chat.id, message.text || "", "channel");
         }
-
     } catch (err) {
         console.error("❌ Handle update error:", err);
     }
