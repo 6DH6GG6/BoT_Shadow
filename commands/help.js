@@ -6,9 +6,10 @@ module.exports = {
         const TOKEN = process.env.TOKEN;
         if (!commands) return;
 
-        // جمع جميع الأوامر
+        // جمع جميع الأوامر الحقيقية فقط
         const allCommands = Array.from(commands.values())
-            .map(cmd => cmd.name || "unknown");
+            .map(cmd => cmd.name)
+            .filter(Boolean); // فقط التي لها اسم
 
         let reply = "👑👑👑👑👑\n";
         allCommands.forEach((cmdName, i) => {
