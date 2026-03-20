@@ -1,14 +1,13 @@
 const axios = require('axios');
-require('dotenv').config();
 
 module.exports = {
     name: "start",
-    async execute(chatId) {
-        const msg = "🔥 مرحبا بك في بوت شادو 🔥";
-
-        await axios.post(`https://api.telegram.org/bot${process.env.BOT_TOKEN}/sendMessage`, {
+    async execute(chatId, args, message) {
+        const TOKEN = process.env.TOKEN;
+        const text = `🔥 أهلاً بك في بوت Shadow OG!\n💬 ارسل أي شيء لتجربة الشات.`;
+        await axios.post(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
             chat_id: chatId,
-            text: msg
+            text
         });
     }
 };
