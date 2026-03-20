@@ -124,4 +124,4 @@ async function handleUpdate(update) {
     }
 }
 
-module.exports = { handleUpdate };
+module.exports = { handleUpdate, commands };
