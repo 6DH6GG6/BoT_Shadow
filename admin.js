@@ -14,7 +14,7 @@ const foldersToLoad = [
     path.join(__dirname, 'dog')
 ];
 
-// تحميل ملفات JS و JSON recursively
+// تحميل ملفات أوامر JS فقط (يجب أن تحتوي على name و execute)
 function loadCommands(dir) {
     if (!fs.existsSync(dir)) return;
 
@@ -26,18 +26,18 @@ function loadCommands(dir) {
 
         if (stat.isDirectory()) {
             loadCommands(fullPath);
-        } else if (file.endsWith('.js') || file.endsWith('.json')) {
+        } else if (file.endsWith('.js')) {
             try {
                 delete require.cache[require.resolve(fullPath)];
-                let cmd = { name: file, execute: null };
+                const required = require(fullPath);
 
-                if (file.endsWith('.js')) {
-                    const required = require(fullPath);
-                    if (required.name && required.execute) cmd = required;
+                if (required.name && typeof required.execute === 'function') {
+                    commands.set(required.name.toLowerCase(), required);
+                    console.log(`✅ Loaded command: ${required.name}`);
+                } else {
+                    console.log(`⚠️ Ignored non-command file: ${file}`);
                 }
 
-                commands.set(cmd.name.toLowerCase(), cmd);
-                console.log(`✅ Loaded command: ${cmd.name}`);
             } catch (err) {
                 console.log(`❌ Error loading ${file}: ${err.message}`);
             }
@@ -48,25 +48,22 @@ function loadCommands(dir) {
 // تحميل كل المجلدات
 foldersToLoad.forEach(folder => loadCommands(folder));
 
-// تحميل ملفات root
+// تحميل ملفات root JS التي هي أوامر فقط
 fs.readdirSync(__dirname).forEach(file => {
     const fullPath = path.join(__dirname, file);
     const stat = fs.statSync(fullPath);
 
-    if (
-        stat.isFile() &&
-        (file.endsWith('.js') || file.endsWith('.json')) &&
-        !['server.js', 'admin.js'].includes(file)
-    ) {
+    if (stat.isFile() && file.endsWith('.js') && !['server.js', 'admin.js'].includes(file)) {
         try {
             delete require.cache[require.resolve(fullPath)];
-            let cmd = { name: file, execute: null };
-            if (file.endsWith('.js')) {
-                const required = require(fullPath);
-                if (required.name && required.execute) cmd = required;
+            const required = require(fullPath);
+
+            if (required.name && typeof required.execute === 'function') {
+                commands.set(required.name.toLowerCase(), required);
+                console.log(`✅ Loaded root command: ${required.name}`);
+            } else {
+                console.log(`⚠️ Ignored root non-command file: ${file}`);
             }
-            commands.set(cmd.name.toLowerCase(), cmd);
-            console.log(`✅ Loaded root command: ${cmd.name}`);
         } catch (err) {
             console.log(`❌ Error loading root file ${file}: ${err.message}`);
         }
@@ -102,7 +99,6 @@ async function handleUpdate(update) {
             const args = text.trim().split(/\s+/);
             const commandName = text.startsWith("/") ? args[0].slice(1).toLowerCase() : null;
 
-            // تنفيذ أي أمر موجود
             if (commandName && commands.has(commandName)) {
                 const cmd = commands.get(commandName);
                 if (cmd.execute) await cmd.execute(chatId, args, message, commands);
