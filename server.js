@@ -1,50 +1,30 @@
-const fs = require("fs-extra");
-const axios = require("axios");
+require('dotenv').config();
+const express = require('express');
+const bodyParser = require('body-parser');
+const admin = require('./admin');
 
-module.exports = {
+const app = express();
+app.use(bodyParser.json());
 
-  // 👑 أوامر الأدمن
-  handleAdmin: async (bot, msg) => {
-    const chatId = msg.chat.id;
-    const text = msg.text;
+const PORT = process.env.PORT || 3000;
+const TOKEN = process.env.BOT_TOKEN;
 
-    if (text === "/start") {
-      bot.sendMessage(chatId, "🔥 لوحة التحكم شغالة");
-    }
-
-    if (text === "/ping") {
-      bot.sendMessage(chatId, "🏓 bot يعمل");
-    }
-  },
-
-  // 📸 حفظ الصور
-  handlePhotos: async (bot, msg) => {
+// Webhook endpoint
+app.post(`/webhook/${TOKEN}`, async (req, res) => {
     try {
-      const chatId = msg.chat.id;
-      const fileId = msg.photo[msg.photo.length - 1].file_id;
-
-      const file = await bot.getFile(fileId);
-      const url = `https://api.telegram.org/file/bot${process.env.TOKEN}/${file.file_path}`;
-
-      const response = await axios({
-        url,
-        method: "GET",
-        responseType: "stream"
-      });
-
-      await fs.ensureDir("./downloads");
-      const path = `./downloads/${Date.now()}.jpg`;
-
-      const writer = fs.createWriteStream(path);
-      response.data.pipe(writer);
-
-      writer.on("finish", () => {
-        bot.sendMessage(chatId, "📸 تم تحميل الصورة");
-      });
-
+        const update = req.body;
+        await admin.handleUpdate(update);
+        res.sendStatus(200);
     } catch (err) {
-      console.log(err);
+        console.error(err);
+        res.sendStatus(500);
     }
-  }
+});
 
-};
+app.get('/', (req, res) => {
+    res.send("Bot is running...");
+});
+
+app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+});
