@@ -1,40 +1,22 @@
-const fs = require('fs');
-const path = require('path');
+const TOKEN = process.env.TOKEN;
+const USER = process.env.USER;
 
-const commands = new Map();
+module.exports = {
+    TOKEN,
+    USER,
+    handleUpdate: async (update) => {
+        const commands = require('./commands');
 
-// تحميل الأوامر تلقائي
-const loadCommands = () => {
-    const files = fs.readdirSync('./commands');
-    for (let file of files) {
-        const cmd = require(`./commands/${file}`);
-        commands.set(cmd.name, cmd);
-    }
-};
+        if (!update.message) return;
 
-loadCommands();
+        const text = update.message.text || "";
+        const chatId = update.message.chat.id;
 
-// التعامل مع التحديثات
-async function handleUpdate(update) {
-    if (!update.message) return;
+        const args = text.split(" ");
+        const cmd = args[0].replace("/", "");
 
-    const text = update.message.text;
-    const chatId = update.message.chat.id;
-
-    if (!text) return;
-
-    const args = text.split(" ");
-    const commandName = args[0].replace("/", "");
-
-    if (commands.has(commandName)) {
-        await commands.get(commandName).execute(chatId, args);
-    } else {
-        // AI fallback
-        const ai = commands.get("ai");
-        if (ai) {
-            await ai.execute(chatId, args);
+        if (commands[cmd]) {
+            await commands[cmd](chatId, args);
         }
     }
-}
-
-module.exports = { handleUpdate };
+};
