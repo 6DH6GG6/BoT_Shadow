@@ -2,33 +2,31 @@ const axios = require('axios');
 
 module.exports = {
     name: "help",
-    async execute(chatId, args, message, commands) {
+    async execute(chatId, args, message, commandsMap) {
         const TOKEN = process.env.TOKEN;
-
-        if (!commands) {
+        if (!commandsMap) {
             return axios.post(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
                 chat_id: chatId,
                 text: "❌ خطأ داخلي: لم يتم تحميل الأوامر"
             });
         }
 
-        const perPage = 5; // عدد الأوامر لكل صفحة
-
-        // تحديد رقم الصفحة من /help أو /help2 أو /help3 ...
+        const perPage = 5;
         let page = 1;
+
+        // التحقق من /help, /help2, /help3...
         const helpArg = args[0] ? args[0].toLowerCase() : "";
         const match = helpArg.match(/^help(\d+)$/);
         if (match) page = parseInt(match[1]);
 
-        // جمع جميع الأوامر
-        let allCommands = Array.from(commands.values())
+        // جمع كل أسماء الأوامر
+        let allCommands = Array.from(commandsMap.values())
             .map(cmd => cmd.name || "unknown");
 
-        // تصفية /delet ليظهر فقط في الصفحة 2
-        allCommands = allCommands.filter(name => {
-            if (name.toLowerCase() === "delet" && page !== 2) return false;
-            return true;
-        });
+        // حذف /delet من الصفحة الأولى
+        if (page !== 2) {
+            allCommands = allCommands.filter(name => name.toLowerCase() !== "delet");
+        }
 
         const totalPages = Math.ceil(allCommands.length / perPage);
         if (page > totalPages) page = totalPages;
