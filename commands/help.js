@@ -3,30 +3,25 @@ const admin = require('../admin');
 
 module.exports = {
     name: "help",
-    async execute(chatId) {
+    async execute(chatId, args, message) {
 
         const TOKEN = process.env.TOKEN;
 
-        // 📂 جلب جميع الأوامر
-        const commandList = Array.from(admin.commands.keys());
+        const cmds = Array.from(admin.commands.keys());
 
-        if (commandList.length === 0) {
+        if (cmds.length === 0) {
             return axios.post(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
                 chat_id: chatId,
-                text: "❌ لا توجد أوامر حالياً"
+                text: "❌ لا يوجد أوامر"
             });
         }
 
-        // 🧠 تنسيق الأوامر
-        let msg = "📜 قائمة الأوامر:\n\n";
+        let msg = "📜 الأوامر:\n\n";
 
-        commandList.forEach(cmd => {
-            msg += `/${cmd}\n`;
+        cmds.forEach(c => {
+            msg += `/${c}\n`;
         });
 
-        msg += `\n🔥 يتم التحديث تلقائياً`;
-
-        // 📤 إرسال
         await axios.post(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
             chat_id: chatId,
             text: msg
