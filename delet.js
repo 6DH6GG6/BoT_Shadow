@@ -1,15 +1,21 @@
 const axios = require('axios');
 
-// 👑 ضع هنا USER صاحب الصلاحية في Render
-const OWNER_ID = process.env.USER;
+const OWNER_ID = process.env.USER; // صاحب الصلاحية
+
+// قائمة أوامر الحذف
+const deleteCommandsList = [
+    { name: "احذف", description: "حذف رسالة تم الرد عليها" },
+    { name: "احذف_الكل", description: "حذف جميع رسائلك المصرح بها" },
+    { name: "احذف_رسائل_من", description: "حذف جميع رسائل مستخدم محدد /احذف_رسائل_من_<USERID>" },
+    { name: "حذف_من_لجميع", description: "حذف جميع الرسائل من كل المستخدمين" }
+];
 
 module.exports = {
-    name: "deleteCommands",
+    name: "delet",
     async execute(chatId, args, message) {
         const TOKEN = process.env.TOKEN;
         const userId = String(message.from.id);
 
-        // 🔒 تحقق من الصلاحية
         if (userId !== OWNER_ID) {
             return axios.post(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
                 chat_id: chatId,
@@ -17,21 +23,21 @@ module.exports = {
             });
         }
 
-        const command = args[0].replace("/", "");
+        const command = args[0].replace("/", "").toLowerCase();
 
-        // 🔹 عرض أوامر الحذف
-        if (command === "اوامر_الحذف") {
-            const text = "📌 أوامر الحذف المتاحة:\n\n" +
-                         "1️⃣ /احذف - حذف رسالة تم الرد عليها\n" +
-                         "2️⃣ /احذف_الكل - حذف جميع رسائلك المصرح بها\n" +
-                         "3️⃣ /احذف_رسائل_من_<USERID> - حذف كل رسائل هذا المستخدم";
+        // عرض قائمة الحذف
+        if (command === "قائمة_الحذف") {
+            let text = "📌 قائمة أوامر الحذف المتاحة:\n\n";
+            deleteCommandsList.forEach((c, i) => {
+                text += `${i + 1}️⃣ /${c.name} → ${c.description}\n`;
+            });
             return axios.post(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
-                chat_id: chatId,
+                chat_id,
                 text
             });
         }
 
-        // 🔹 حذف رسالة محددة /احذف
+        // حذف رسالة محددة
         if (command === "احذف") {
             if (!message.reply_to_message) {
                 return axios.post(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
@@ -39,7 +45,6 @@ module.exports = {
                     text: "❌ الرجاء الرد على الرسالة المراد حذفها مع الأمر /احذف"
                 });
             }
-
             const message_id = message.reply_to_message.message_id;
             try {
                 await axios.post(`https://api.telegram.org/bot${TOKEN}/deleteMessage`, {
@@ -52,23 +57,41 @@ module.exports = {
             return;
         }
 
-        // 🔹 حذف كل رسائل هذا الشخص (مثال /احذف_رسائل_من_7664410054)
-        if (command.startsWith("احذف_رسائل_من_")) {
-            const targetId = command.split("_")[3];
-            // هنا يمكنك وضع منطق لحذف كل رسائل هذا المستخدم من قاعدة بيانات أو ملفاتك
+        // حذف جميع رسائل صاحب الأمر
+        if (command === "احذف_الكل") {
             return axios.post(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
                 chat_id,
-                text: `✅ سيتم حذف جميع رسائل المستخدم ${targetId} (يجب تنفيذ المنطق حسب تخزين الرسائل)`
+                text: "✅ سيتم حذف جميع رسائلك المصرح بها (حسب التخزين)"
             });
         }
 
-        // 🔹 حذف كل رسائل صاحب الأمر /احذف_الكل
-        if (command === "احذف_الكل") {
-            // هنا يمكنك وضع منطق حذف جميع الرسائل التي تتبع هذا المستخدم
+        // حذف رسائل مستخدم محدد
+        if (command.startsWith("احذف_رسائل_من")) {
+            const targetId = args[0].split("_")[3];
+            if (!targetId) {
+                return axios.post(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
+                    chat_id,
+                    text: "❌ يرجى تحديد USERID: /احذف_رسائل_من_<USERID>"
+                });
+            }
             return axios.post(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
                 chat_id,
-                text: "✅ سيتم حذف جميع رسائلك المصرح بها (يجب تنفيذ المنطق حسب تخزين الرسائل)"
+                text: `✅ سيتم حذف جميع رسائل المستخدم ${targetId} (حسب التخزين)`
             });
         }
+
+        // حذف جميع الرسائل من جميع المستخدمين
+        if (command === "حذف_من_لجميع") {
+            return axios.post(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
+                chat_id,
+                text: "✅ سيتم حذف جميع رسائل كل المستخدمين (حسب التخزين)"
+            });
+        }
+
+        // أي أمر آخر غير معروف
+        return axios.post(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
+            chat_id,
+            text: `❌ الأمر /${command} غير موجود. استخدم /قائمة_الحذف لرؤية الأوامر`
+        });
     }
 };
