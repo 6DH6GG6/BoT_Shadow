@@ -12,12 +12,19 @@ module.exports = {
             });
         }
 
-        const allCommands = Array.from(commands.values())
+        // تحديد الصفحة (help = 1، help2 = 2)
+        const page = args[0] === "help2" ? 2 : 1;
+        const perPage = 5;
+
+        // جمع جميع الأوامر
+        let allCommands = Array.from(commands.values())
             .map(cmd => cmd.name || "unknown");
 
-        // تقسيم الأوامر 5 لكل صفحة
-        const page = args[1] ? parseInt(args[1]) : 1;
-        const perPage = 5;
+        // تصفية الأوامر الإدارية من الصفحة الأولى
+        if (page === 1) {
+            allCommands = allCommands.filter(name => name.toLowerCase() !== "delet");
+        }
+
         const start = (page - 1) * perPage;
         const end = start + perPage;
         const pageCommands = allCommands.slice(start, end);
