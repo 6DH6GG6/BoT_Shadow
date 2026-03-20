@@ -7,13 +7,11 @@ const app = express();
 app.use(bodyParser.json());
 
 const PORT = process.env.PORT || 3000;
-const TOKEN = process.env.BOT_TOKEN;
+const TOKEN = process.env.TOKEN; // من Render
 
-// Webhook endpoint
 app.post(`/webhook/${TOKEN}`, async (req, res) => {
     try {
-        const update = req.body;
-        await admin.handleUpdate(update);
+        await admin.handleUpdate(req.body);
         res.sendStatus(200);
     } catch (err) {
         console.error(err);
