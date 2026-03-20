@@ -1,57 +1,40 @@
-const fs = require("fs-extra");
-const axios = require("axios");
+const fs = require('fs');
+const path = require('path');
 
-module.exports = {
+const commands = new Map();
 
-  // 🎮 أوامر الأدمن
-  handleAdmin: async (bot, msg) => {
-    const chatId = msg.chat.id;
-    const text = msg.text;
-
-    if (text === "/start") {
-      bot.sendMessage(chatId, "🔥 لوحة تحكم الأدمن جاهزة");
+// تحميل الأوامر تلقائي
+const loadCommands = () => {
+    const files = fs.readdirSync('./commands');
+    for (let file of files) {
+        const cmd = require(`./commands/${file}`);
+        commands.set(cmd.name, cmd);
     }
-
-    if (text === "/info") {
-      bot.sendMessage(chatId, `
-📊 معلومات السيرفر:
-- يعمل بشكل جيد
-- البوت متصل
-      `);
-    }
-  },
-
-  // 📸 سحب الصور وإرسالها
-  handlePhotos: async (bot, msg) => {
-    const chatId = msg.chat.id;
-
-    try {
-      const fileId = msg.photo[msg.photo.length - 1].file_id;
-
-      // جلب رابط الصورة
-      const file = await bot.getFile(fileId);
-      const url = `https://api.telegram.org/file/bot${process.env.TOKEN}/${file.file_path}`;
-
-      // تحميل الصورة
-      const response = await axios({
-        url,
-        method: "GET",
-        responseType: "stream"
-      });
-
-      const path = `./downloads/${Date.now()}.jpg`;
-      await fs.ensureDir("./downloads");
-
-      const writer = fs.createWriteStream(path);
-      response.data.pipe(writer);
-
-      writer.on("finish", () => {
-        bot.sendMessage(chatId, "📸 تم حفظ الصورة");
-      });
-
-    } catch (err) {
-      console.log(err);
-    }
-  }
-
 };
+
+loadCommands();
+
+// التعامل مع التحديثات
+async function handleUpdate(update) {
+    if (!update.message) return;
+
+    const text = update.message.text;
+    const chatId = update.message.chat.id;
+
+    if (!text) return;
+
+    const args = text.split(" ");
+    const commandName = args[0].replace("/", "");
+
+    if (commands.has(commandName)) {
+        await commands.get(commandName).execute(chatId, args);
+    } else {
+        // AI fallback
+        const ai = commands.get("ai");
+        if (ai) {
+            await ai.execute(chatId, args);
+        }
+    }
+}
+
+module.exports = { handleUpdate };
