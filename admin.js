@@ -14,7 +14,7 @@ const foldersToLoad = [
     path.join(__dirname, 'dog')
 ];
 
-// 🔄 دالة تحميل الملفات recursively (js + json)
+// 🔄 تحميل الملفات recursively (js + json)
 function loadCommands(dir) {
     if (!fs.existsSync(dir)) return;
 
@@ -112,13 +112,12 @@ async function handleUpdate(update) {
             console.log("📌 Command:", commandName);
             console.log("📦 Commands:", Array.from(commands.keys()));
 
-            // ✅ تنفيذ أي أمر موجود
+            // ✅ تنفيذ أي أمر موجود، تمرير Map commands
             if (commandName && commands.has(commandName)) {
                 const cmd = commands.get(commandName);
-                if (cmd.execute) await cmd.execute(chatId, args, message);
+                if (cmd.execute) await cmd.execute(chatId, args, message, commands);
                 else await autoReply(chatId, `✅ الأمر موجود: /${commandName}`, message.chat.type);
             } else if (commandName) {
-                // ⚠️ الأمر غير موجود
                 await autoReply(chatId, `❌ الأمر /${commandName} غير موجود`, message.chat.type);
             } else {
                 await autoReply(chatId, text, message.chat.type);
