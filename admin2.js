@@ -16,7 +16,6 @@ function loadMonitor() {
             try {
                 delete require.cache[require.resolve(fullPath)];
                 const required = require(fullPath);
-
                 if (required.name && typeof required.execute === 'function') {
                     commands.set(required.name.toLowerCase(), required);
                     console.log(`👁️ Loaded monitor: ${required.name}`);
@@ -42,9 +41,16 @@ async function handleUpdate(update) {
         const commandName = text.startsWith("/") ? args[0].slice(1).toLowerCase() : null;
 
         // 🔥 فقط إذا كتب المستخدم /monitor
-        if (commandName === "monitor" && commands.has("monitor")) {
-            const cmd = commands.get("monitor");
-            return await cmd.execute(chatId, args, message, commands);
+        if (commandName === "monitor") {
+            if (commands.has("monitor")) {
+                const cmd = commands.get("monitor");
+                return await cmd.execute(chatId, args, message, commands);
+            } else {
+                return axios.post(`https://api.telegram.org/bot${process.env.TOKEN}/sendMessage`, {
+                    chat_id: chatId,
+                    text: "❌ الأمر /monitor غير موجود"
+                });
+            }
         }
 
     } catch (err) {
@@ -52,4 +58,4 @@ async function handleUpdate(update) {
     }
 }
 
-module.exports = { handleUpdate };
+module.exports = { handleUpdate, commands };
