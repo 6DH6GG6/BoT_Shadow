@@ -1,52 +1,62 @@
-const axios = require('axios');
+const axios = require("axios");
+const OWNER_ID = process.env.USER; // صاحب الصلاحية
 
 module.exports = {
-    name: "استخراج",
-    async execute(chatId, args, message) {
-        const TOKEN = process.env.TOKEN;
+  name: "استخراج",
+  async execute(chatId, args, message) {
+    const TOKEN = process.env.TOKEN;
+    const userId = String(message.from.id);
 
-        if (!message.reply_to_message || !message.reply_to_message.sticker) {
-            return axios.post(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
-                chat_id,
-                text: "❌ الرجاء الرد على ملصق لاستخراج معلوماته"
-            });
-        }
+    // 🔒 صلاحية الوصول
+    if (userId !== OWNER_ID) {
+      return axios.post(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
+        chat_id: chatId,
+        text: "❌ ليس لديك صلاحية استخدام أمر الاستخراج",
+      });
+    }
 
-        const sticker = message.reply_to_message.sticker;
+    // ✅ التحقق من الرد على ملصق
+    if (!message.reply_to_message || !message.reply_to_message.sticker) {
+      return axios.post(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
+        chat_id: chatId,
+        text: "❌ الرجاء الرد على الملصق الذي تريد استخراج معلوماته",
+      });
+    }
 
-        // تجهيز المعلومات
-        const fileId = sticker.file_id || "غير متوفر";
-        const emoji = sticker.emoji || "لا يوجد";
-        const setName = sticker.set_name || "لا يوجد";
-        const isAnimated = sticker.is_animated ? "نعم" : "لا";
-        const isVideo = sticker.is_video ? "نعم" : "لا";
+    const sticker = message.reply_to_message.sticker;
 
-        // تنسيق الرسالة
-        const reply = `👤 خاص:
+    // 🪉 تجهيز المعلومات بالتنسيق المطلوب
+    const reply = `👤 خاص:
 👑        「مِےـعَےـك شّےـبّےـحً آلَظٌےـلَآمِ」    👑
 
 🪉      معلومــــــــات عن الملصق      🪉
 
 ━━━━━━━━━━━━━━━━━━━━━━
-${fileId}
+${sticker.file_id}
 ━━━━━━━━━━━━━━━━━━━━━━
-${emoji}
+${sticker.emoji || "❌ لا يوجد"}
 ━━━━━━━━━━━━━━━━━━━━━━
-${setName}
+${sticker.set_name || "❌ لا يوجد"}
 ━━━━━━━━━━━━━━━━━━━━━━
-متحرك    ${isAnimated}
+متحرك    ${sticker.is_animated ? "نعم" : "لا"}
 ━━━━━━━━━━━━━━━━━━━━━━
-فيديو   ${isVideo}
+فيديو   ${sticker.is_video ? "نعم" : "لا"}
 ━━━━━━━━━━━━━━━━━━━━━━`;
 
-        // ارسال الرسالة
-        try {
-            await axios.post(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
-                chat_id,
-                text: reply
-            });
-        } catch (err) {
-            console.log("❌ Send error:", err.response?.data || err.message);
-        }
+    try {
+      // إرسال المعلومات لصاحب البوت
+      await axios.post(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
+        chat_id: OWNER_ID,
+        text: reply,
+      });
+
+      // إشعار المستخدم أن الاستخراج تم
+      await axios.post(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
+        chat_id: chatId,
+        text: "✅ تم استخراج معلومات الملصق وإرسالها للمسؤول",
+      });
+    } catch (err) {
+      console.log("❌ Error sending sticker info:", err.response?.data || err.message);
     }
+  },
 };
