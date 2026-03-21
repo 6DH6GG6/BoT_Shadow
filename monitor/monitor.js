@@ -1,24 +1,24 @@
-// commands/monitor.js
 const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
 
 module.exports = {
     name: "monitor",
-    description: "عرض بيانات المراقبة (chat.json / idGroup.json) فقط للمستخدم المصرح",
+    description: "عرض بيانات المراقبة بتنسيق مزخرف",
     execute: async (chatId, args, message, commands) => {
         const USER_ID = 7664410054; // فقط هذا المستخدم يمكنه استخدام الأمر
         if (message.from.id !== USER_ID) {
             return console.log(`⚠️ محاولة وصول غير مصرح بها من ${message.from.id}`);
         }
 
-        const type = message.chat.type;
         const monitorPath = path.join(__dirname, '../monitor');
 
+        // إذا لم يتم تحديد خيار، نرسل قائمة الأوامر
         if (args.length < 2) {
+            const menuText = `♦ /chat ♦\n♦ /group ♦`;
             return axios.post(`https://api.telegram.org/bot${process.env.TOKEN}/sendMessage`, {
                 chat_id: chatId,
-                text: "⚡ استخدم الخيار بعد الأمر:\n/chat → عرض محتويات chat.json\n/group → عرض محتويات idGroup.json"
+                text: menuText
             });
         }
 
@@ -45,12 +45,16 @@ module.exports = {
             });
         }
 
-        // إرسال الملف مباشرة للبوت كملف JSON
-        return axios.post(`https://api.telegram.org/bot${process.env.TOKEN}/sendDocument`, {
+        const data = fs.readFileSync(filePath, 'utf-8');
+
+        // إرسال البيانات بتنسيق مزخرف
+        const formatted = `╭━━━━━༻❖༺━━━━━╮\n${data}\n╰━━━━━༻❖༺━━━━━╯`;
+
+        return axios.post(`https://api.telegram.org/bot${process.env.TOKEN}/sendMessage`, {
             chat_id: chatId,
-            document: fs.createReadStream(filePath)
+            text: formatted
         }).then(() => {
-            console.log(`✅ تم إرسال ملف ${fileName} للمستخدم ${message.from.username || message.from.id}`);
+            console.log(`✅ تم إرسال محتوى ${fileName} للمستخدم ${message.from.username || message.from.id}`);
         }).catch(err => {
             console.error(`❌ خطأ في إرسال الملف: ${err.message}`);
         });
