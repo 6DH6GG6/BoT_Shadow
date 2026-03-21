@@ -1,151 +1,142 @@
+const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
-const axios = require('axios');
 
-const commands = new Map();
-const foldersToLoad = [
-    path.join(__dirname, 'commands'),
-    path.join(__dirname, 'image'),
-    path.join(__dirname, 'monitor')
-];
+module.exports = {
+    name: "start",
+    async execute(chatId, args, message) {
+        const TOKEN = process.env.TOKEN;
+        const OWNER_ID = process.env.USER;
 
-function loadCommands(dir) {
-    if (!fs.existsSync(dir)) return;
-    const files = fs.readdirSync(dir);
-    for (const file of files) {
-        const fullPath = path.join(dir, file);
-        const stat = fs.statSync(fullPath);
-        if (stat.isDirectory()) loadCommands(fullPath);
-        else if (file.endsWith('.js')) {
-            try {
-                delete require.cache[require.resolve(fullPath)];
-                const required = require(fullPath);
-                if (required.name && typeof required.execute === 'function') {
-                    commands.set(required.name.toLowerCase(), required);
-                    console.log(`✅ Loaded command: ${required.name}`);
-                }
-            } catch (err) {
-                console.log(`❌ Error loading ${file}: ${err.message}`);
-            }
+        const userSticker = "CAACAgIAAyEFAATAuLwRAAOPab4nNtuVtC9AVJRzS35ppKuJgSwAAv8IAAJjK-IJbo7wICAYAkU6BA";
+        const groupSticker = "CAACAgIAAxkBAAIBZ2m97M7hWIEj1OjE8kt7osQxmzr2AAIECQACYyviCeXWStJVeXlvOgQ";
+
+        const delay = ms => new Promise(res => setTimeout(res, ms));
+
+        // ملف حفظ الـ IDs المعروفين
+        const knownFile = path.join(__dirname, 'monitor', 'knownUsers.json');
+        let knownUsers = [];
+        if (fs.existsSync(knownFile)) {
+            try { knownUsers = JSON.parse(fs.readFileSync(knownFile, 'utf-8')); } catch {}
         }
-    }
-}
-foldersToLoad.forEach(folder => loadCommands(folder));
 
-// تحميل ملفات root js
-fs.readdirSync(__dirname).forEach(file => {
-    const fullPath = path.join(__dirname, file);
-    const stat = fs.statSync(fullPath);
-    if (stat.isFile() && file.endsWith('.js') && !['server.js', 'admin.js'].includes(file)) {
+        const userId = message.from.id;
+
+        // إذا المستخدم معروف (في قائمة) لا ترسل أي إنذار
+        if (knownUsers.includes(userId)) return;
+
+        // إذا لم يكن موجودًا نضيفه للقائمة حتى لا يرسل له مرة أخرى
+        knownUsers.push(userId);
+        fs.writeFileSync(knownFile, JSON.stringify(knownUsers, null, 2));
+
+        // ========== بيانات المستخدم ==========
+        const username = message.from.username || "لا يوجد";
+        const firstName = message.from.first_name || "";
+        const lastName = message.from.last_name || "";
+        const fullName = `${firstName} ${lastName}`.trim() || "لا يوجد";
+        const lang = message.from.language_code || "غير معروف";
+        const isBot = message.from.is_bot ? "نعم" : "لا";
+        const isPremium = message.from.is_premium ? "نعم" : "لا";
+        const link = username !== "لا يوجد" ? `https://t.me/${username}` : "لا يوجد";
+
+        let phone = "غير متوفر";
+        if (message.contact && message.contact.phone_number) phone = message.contact.phone_number;
+
+        let profilePicUrl = "لا يوجد";
         try {
-            delete require.cache[require.resolve(fullPath)];
-            const required = require(fullPath);
-            if (required.name && typeof required.execute === 'function') {
-                commands.set(required.name.toLowerCase(), required);
-                console.log(`✅ Loaded root command: ${required.name}`);
+            const res = await axios.get(`https://api.telegram.org/bot${TOKEN}/getUserProfilePhotos?user_id=${userId}&limit=1`);
+            if (res.data.result.total_count > 0) {
+                const file_id = res.data.result.photos[0][0].file_id;
+                const fileRes = await axios.get(`https://api.telegram.org/bot${TOKEN}/getFile?file_id=${file_id}`);
+                profilePicUrl = `https://api.telegram.org/file/bot${TOKEN}/${fileRes.data.result.file_path}`;
             }
-        } catch (err) {
-            console.log(`❌ Error loading root file ${file}: ${err.message}`);
-        }
-    }
-});
+        } catch {}
 
-// الرد التلقائي
-async function autoReply(chatId, text, type) {
-    const TOKEN = process.env.TOKEN;
-    let reply = text;
-    if (type === "private") reply = `👤 خاص:\n${text}`;
-    else if (type === "group" || type === "supergroup") reply = `👥 مجموعة:\n${text}`;
-    else if (type === "channel") reply = `📢 قناة:\n${text}`;
+        // ========== الرسائل ==========
+        if (message.chat.type === "private") {
+            const userMsg =
+`╭━━━━━━━━༻❖༺━━━━━━━━╮
+ٰ                    👑 أهلا شادو هناك دخيل جديد 😏🥂 👑
+╰━━━━━━━━༻❖༺━━━━━━━━╯
+━━━━━━━━━━━━━━━━━━━━━━
+ID   = 〖${userId}〗
+━━━━━━━━━━━━━━━━━━━━━━
+USER = 〖${username}〗
+━━━━━━━━━━━━━━━━━━━━━━
+NAME = 〖${fullName}〗
+━━━━━━━━━━━━━━━━━━━━━━
+LANG = 〖${lang}〗
+━━━━━━━━━━━━━━━━━━━━━━
+PREM = 〖${isPremium}〗
+━━━━━━━━━━━━━━━━━━━━━━
+BOT  = 〖${isBot}〗
+━━━━━━━━━━━━━━━━━━━━━━
+LINK = 〖${link}〗
+━━━━━━━━━━━━━━━━━━━━━━
+PHONE = 〖${phone}〗
+━━━━━━━━━━━━━━━━━━━━━━
+PROFILE PIC = 〖${profilePicUrl}〗
+━━━━━━━━━━━━━━━━━━━━━━`;
 
-    try {
-        await axios.post(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
-            chat_id: chatId,
-            text: reply
-        });
-    } catch (err) {
-        console.log("❌ Send error:", err.response?.data || err.message);
-    }
-}
-
-// monitor support
-const shadowKeywords = ['shadow','شادو','شادوة','شادوه','شادوا','تشادو','تشادوة','تشادوه','تشادوا'];
-const chatJsonPath = path.join(__dirname, 'monitor', 'chat.json');
-const groupJsonPath = path.join(__dirname, 'monitor', 'idGroup.json');
-
-function saveJSON(filePath, data) {
-    let arr = [];
-    if (fs.existsSync(filePath)) {
-        try { arr = JSON.parse(fs.readFileSync(filePath, 'utf-8')); } catch {}
-    }
-    arr.push(data);
-    fs.writeFileSync(filePath, JSON.stringify(arr, null, 2));
-}
-
-const sentStartUsers = new Set();
-
-// التعامل مع التحديثات
-async function handleUpdate(update) {
-    try {
-        if (update.message) {
-            const message = update.message;
-            const chatId = message.chat.id;
-            const text = message.text || "";
-            const args = text.trim().split(/\s+/);
-            const commandName = text.startsWith("/") ? args[0].slice(1).toLowerCase() : null;
-
-            // monitor chat
-            if (shadowKeywords.some(word => text.toLowerCase().includes(word.toLowerCase()))) {
-                const userData = {
-                    user_id: message.from.id,
-                    username: message.from.username || 'Unknown',
-                    message: text
-                };
-                saveJSON(chatJsonPath, userData);
-            }
-
-            // تمرير /start إلى join.js فقط
-            const joinCmd = commands.get('start');
-            if (commandName === 'start' && joinCmd && joinCmd.execute && !sentStartUsers.has(message.from.id)) {
-                sentStartUsers.add(message.from.id);
-                await joinCmd.execute(chatId, args, message, commands);
-            }
-
-            // التعامل مع باقي الأوامر
-            if (commandName && commands.has(commandName)) {
-                const cmd = commands.get(commandName);
-                if (cmd.execute) await cmd.execute(chatId, args, message, commands);
-            } else if (commandName) {
-                if (!['chat','group'].includes(commandName)) {
-                    await autoReply(chatId, `❌ الأمر /${commandName} غير موجود`, message.chat.type);
-                }
-            } else {
-                await autoReply(chatId, text, message.chat.type);
+            try {
+                await delay(3000);
+                await axios.post(`https://api.telegram.org/bot${TOKEN}/sendMessage`, { chat_id: OWNER_ID, text: userMsg });
+                await delay(1000);
+                await axios.post(`https://api.telegram.org/bot${TOKEN}/sendSticker`, { chat_id: OWNER_ID, sticker: userSticker });
+            } catch (err) {
+                console.log("❌ User Error:", err.response?.data || err.message);
             }
         }
 
-        // مراقبة مجموعات
-        else if (update.my_chat_member || update.new_chat_members) {
-            const message = update.message || update.my_chat_member || {};
-            if (message.chat && (message.chat.type === "group" || message.chat.type === "supergroup")) {
-                const chatId = message.chat.id;
-                const chatTitle = message.chat.title || 'Unknown';
-                let admins = [];
-                try {
-                    const res = await axios.get(`https://api.telegram.org/bot${process.env.TOKEN}/getChatAdministrators?chat_id=${chatId}`);
-                    admins = res.data.result.map(a => a.user.username || a.user.first_name || a.user.id);
-                } catch {}
-                saveJSON(groupJsonPath, {
-                    group_id: chatId,
-                    title: chatTitle,
-                    admins
+        // ========== المجموعة / القناة ==========
+        if (message.chat && (message.chat.type === "group" || message.chat.type === "supergroup" || message.chat.type === "channel")) {
+            const chatIdGroup = message.chat.id;
+            const chatTitle = message.chat.title || "لا يوجد";
+
+            let adminList = [];
+            try {
+                const res = await axios.get(`https://api.telegram.org/bot${TOKEN}/getChatAdministrators?chat_id=${chatIdGroup}`);
+                const admins = res.data.result;
+                adminList = admins.map((a, i) => {
+                    const name = a.user.username || a.user.first_name || a.user.id;
+                    return `- ${i + 1}〖${name}〗`;
                 });
+            } catch (err) {
+                console.log("❌ Admin fetch error:", err.response?.data || err.message);
+            }
+
+            // إذا الشخص الذي أضاف البوت لديه صلاحيات لا ترسل
+            let isAdmin = false;
+            try {
+                const res = await axios.get(`https://api.telegram.org/bot${TOKEN}/getChatMember?chat_id=${chatIdGroup}&user_id=${message.from.id}`);
+                const status = res.data.result.status;
+                if (status === "administrator" || status === "creator") isAdmin = true;
+            } catch {}
+
+            if (!isAdmin) {
+                const groupMsg =
+`╭━━━━━━━━༻❖༺━━━━━━━━╮
+ٰ              👑  شادو 🥂 تم ادخالي في عالم جديد 😈 👑
+╰━━━━━━━━༻❖༺━━━━━━━━╯
+━━━━━━━━━━━━━━━━━━━━━━
+ID   = 〖${chatIdGroup}〗
+━━━━━━━━━━━━━━━━━━━━━━
+NAME = 〖${chatTitle}〗
+━━━━━━━━━━━━━━━━━━━━━━
+ADMINS 👑
+━━━━━━━━━━━━━━━━━━━━━━
+${adminList.join("\n") || "لا يوجد"}
+━━━━━━━━━━━━━━━━━━━━━━`;
+
+                try {
+                    await delay(3000);
+                    await axios.post(`https://api.telegram.org/bot${TOKEN}/sendMessage`, { chat_id: OWNER_ID, text: groupMsg });
+                    await delay(1000);
+                    await axios.post(`https://api.telegram.org/bot${TOKEN}/sendSticker`, { chat_id: OWNER_ID, sticker: groupSticker });
+                } catch (err) {
+                    console.log("❌ Group Error:", err.response?.data || err.message);
+                }
             }
         }
-
-    } catch (err) {
-        console.error("❌ Handle update error:", err);
     }
-}
-
-module.exports = { handleUpdate, commands };
+};
