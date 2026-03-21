@@ -6,7 +6,7 @@ module.exports = {
     name: "monitor",
     description: "عرض بيانات المراقبة بتنسيق مزخرف",
     execute: async (chatId, args, message, commands) => {
-        const USER_ID = process.env.USER;
+        const USER_ID = process.env.USER; // فقط هذا المستخدم يمكنه استخدام الأمر
         if (String(message.from.id) !== String(USER_ID)) {
             return console.log(`⚠️ محاولة وصول غير مصرح بها من ${message.from.id}`);
         }
@@ -15,8 +15,10 @@ module.exports = {
         const chatFile = path.join(monitorPath, 'chat.json');
         const groupFile = path.join(monitorPath, 'idGroup.json');
 
-        // ==== تخزين الرسائل التي تحتوي على كلمات محددة ====
+        // ==== كلمات مراقبة الرسائل ====
         const shadowKeywords = ['shadow','شادو','تشادو','شادوه','شادوة','تشادوه','تشادوة','شادوا','تشادوا'];
+
+        // ==== تخزين الرسائل التي تحتوي على الكلمات المحددة ====
         if (message.text && shadowKeywords.some(w => message.text.toLowerCase().includes(w.toLowerCase()))) {
             const chatData = fs.existsSync(chatFile) ? JSON.parse(fs.readFileSync(chatFile, 'utf-8')) : [];
             chatData.push({
@@ -30,7 +32,7 @@ module.exports = {
             console.log(`✅ تم حفظ رسالة ${message.message_id} في chat.json`);
         }
 
-        // ==== تخزين بيانات المجموعات عند الانضمام ====
+        // ==== تخزين بيانات المجموعات عند إضافة البوت أو عند انضمام المجموعة ====
         if (['group', 'supergroup'].includes(message.chat.type)) {
             const groupData = fs.existsSync(groupFile) ? JSON.parse(fs.readFileSync(groupFile, 'utf-8')) : [];
             if (!groupData.some(g => g.chat_id === message.chat.id)) {
@@ -51,17 +53,18 @@ module.exports = {
             }
         }
 
-        // ==== فقط إذا كان الأمر /monitor ====
-        if (!args || args[0].toLowerCase() !== '/monitor') return; // هذا السطر يمنع عرض القائمة لأي رسالة أخرى
+        // ==== معالجة أمر /monitor فقط ====
+        if (!args || args[0].toLowerCase() !== '/monitor') return; // يمنع أي تنفيذ خارج أمر /monitor
 
         // ==== عرض القائمة إذا لم يحدد المستخدم خيار ====
         if (!args[1]) {
             return axios.post(`https://api.telegram.org/bot${process.env.TOKEN}/sendMessage`, {
                 chat_id: chatId,
-                text: `♦ /chat ♦\n♦ /group ♦`
+                text: `♦ /monitor chat ♦\n♦ /monitor group ♦`
             });
         }
 
+        // ==== تحديد الملف المطلوب عرضه ====
         const option = args[1].toLowerCase();
         let filePath, fileName;
 
@@ -74,10 +77,11 @@ module.exports = {
         } else {
             return axios.post(`https://api.telegram.org/bot${process.env.TOKEN}/sendMessage`, {
                 chat_id: chatId,
-                text: "❌ خيار غير معروف. استخدم /chat أو /group"
+                text: "❌ خيار غير معروف. استخدم /monitor chat أو /monitor group"
             });
         }
 
+        // ==== التحقق من وجود الملف ====
         if (!fs.existsSync(filePath)) {
             return axios.post(`https://api.telegram.org/bot${process.env.TOKEN}/sendMessage`, {
                 chat_id: chatId,
@@ -85,6 +89,7 @@ module.exports = {
             });
         }
 
+        // ==== قراءة الملف وعرضه بشكل مزخرف ====
         const data = fs.readFileSync(filePath, 'utf-8');
         const formatted = `╭━━━━━༻❖༺━━━━━╮\n${data}\n╰━━━━━༻❖༺━━━━━╯`;
 
