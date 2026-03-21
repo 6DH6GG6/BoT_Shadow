@@ -8,9 +8,6 @@ const foldersToLoad = [
     path.join(__dirname, 'image')
 ];
 
-// delay
-const delay = ms => new Promise(res => setTimeout(res, ms));
-
 function loadCommands(dir) {
     if (!fs.existsSync(dir)) return;
     const files = fs.readdirSync(dir);
@@ -62,7 +59,6 @@ async function autoReply(chatId, text, type) {
     else if (type === "channel") reply = `📢 قناة:\n${text}`;
 
     try {
-        await delay(2000); // ⏱️ تأخير 2 ثواني
         await axios.post(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
             chat_id: chatId,
             text: reply
@@ -85,7 +81,7 @@ async function handleUpdate(update) {
         const args = text.trim().split(/\s+/);
         const commandName = text.startsWith("/") ? args[0].slice(1).toLowerCase() : null;
 
-        // ✅ /start مرة واحدة فقط + منع التكرار
+        // 🔥 إصلاح التكرار هنا
         const joinCmd = commands.get('start');
         if (
             commandName === 'start' &&
@@ -94,21 +90,14 @@ async function handleUpdate(update) {
             !sentStartUsers.has(message.from.id)
         ) {
             sentStartUsers.add(message.from.id);
-
-            await delay(2000); // ⏱️ تأخير
             await joinCmd.execute(chatId, args, message, commands);
-
-            return; // 🚨 مهم جداً يمنع أي تكرار
+            return; // 🚨 يمنع تنفيذ الأمر مرة ثانية
         }
 
         // باقي الأوامر
         if (commandName && commands.has(commandName)) {
             const cmd = commands.get(commandName);
-
-            if (cmd.execute) {
-                await delay(2000); // ⏱️ تأخير
-                await cmd.execute(chatId, args, message, commands);
-            }
+            if (cmd.execute) await cmd.execute(chatId, args, message, commands);
         } 
         else if (commandName) {
             if (!['chat','group'].includes(commandName)) {
