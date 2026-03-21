@@ -3,73 +3,38 @@ const path = require('path');
 
 class King {
     constructor(folders = []) {
-        this.foldersToLoad = folders;
-        this.files = [];
+        this.folders = folders;
     }
 
     addFolder(folderPath) {
-        if (!this.foldersToLoad.includes(folderPath)) {
-            this.foldersToLoad.push(folderPath);
-        }
+        if (!this.folders.includes(folderPath)) this.folders.push(folderPath);
     }
 
-    scanFiles() {
-        this.files = [];
-        for (const folder of this.foldersToLoad) {
-            this._readFolderRecursive(folder);
+    getFilesWithContent() {
+        let results = [];
+        for (const folder of this.folders) {
+            this._readFolderRecursive(folder, results);
         }
-        return this.files;
+        return results;
     }
 
-    _readFolderRecursive(folderPath) {
-        if (!fs.existsSync(folderPath)) return;
-
-        const items = fs.readdirSync(folderPath);
-        for (const item of items) {
-            const fullPath = path.join(folderPath, item);
+    _readFolderRecursive(folder, results) {
+        if (!fs.existsSync(folder)) return;
+        const files = fs.readdirSync(folder);
+        for (const file of files) {
+            const fullPath = path.join(folder, file);
             const stat = fs.statSync(fullPath);
-
-            if (stat.isDirectory()) {
-                this._readFolderRecursive(fullPath);
-            } else if (item.endsWith('.js') || item.endsWith('.json')) {
-                this.files.push({
-                    name: item,
-                    fullPath,
-                    ext: path.extname(item)
-                });
+            if (stat.isDirectory()) this._readFolderRecursive(fullPath, results);
+            else if (file.endsWith('.js') || file.endsWith('.json')) {
+                results.push({ path: fullPath, name: file, ext: path.extname(file) });
             }
         }
     }
 
     requireFile(filePath) {
-        if (!fs.existsSync(filePath)) throw new Error("❌ الملف غير موجود");
         delete require.cache[require.resolve(filePath)];
         return require(filePath);
     }
-
-    getFilesWithContent() {
-        return this.scanFiles().map(f => {
-            let content = null;
-            if (f.ext === '.json') {
-                try {
-                    content = JSON.parse(fs.readFileSync(f.fullPath, 'utf-8'));
-                } catch {}
-            }
-            return {
-                name: f.name,
-                path: f.fullPath,
-                ext: f.ext,
-                content
-            };
-        });
-    }
 }
 
-const defaultFolders = [
-    path.join(__dirname, 'utils'),
-    path.join(__dirname, 'shadow_monitor'),
-    path.join(__dirname, 'monitor'),
-    path.join(__dirname, 'commands')
-];
-
-module.exports = new King(defaultFolders);
+module.exports = King;
