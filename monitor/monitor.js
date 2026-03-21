@@ -1,6 +1,7 @@
 // commands/monitor.js
 const fs = require('fs');
 const path = require('path');
+const axios = require('axios');
 
 module.exports = {
     name: "monitor",
@@ -12,52 +13,46 @@ module.exports = {
         }
 
         const type = message.chat.type;
-        const basePath = path.join(__dirname, '../');
+        const monitorPath = path.join(__dirname, '../monitor');
 
         if (args.length < 2) {
-            // إذا لم يحدد المستخدم الخيار
-            return require('axios').post(`https://api.telegram.org/bot${process.env.TOKEN}/sendMessage`, {
+            return axios.post(`https://api.telegram.org/bot${process.env.TOKEN}/sendMessage`, {
                 chat_id: chatId,
                 text: "⚡ استخدم الخيار بعد الأمر:\n/chat → عرض محتويات chat.json\n/group → عرض محتويات idGroup.json"
             });
         }
 
         const option = args[1].toLowerCase();
+        let filePath, fileName;
 
         if (option === "chat") {
-            const chatFile = path.join(basePath, 'monitor', 'chat.json');
-            if (!fs.existsSync(chatFile)) {
-                return require('axios').post(`https://api.telegram.org/bot${process.env.TOKEN}/sendMessage`, {
-                    chat_id: chatId,
-                    text: "❌ لا يوجد ملف chat.json"
-                });
-            }
-            const data = fs.readFileSync(chatFile, 'utf-8');
-            // نرسل البيانات كرسالة نصية، إذا كبير الحجم يمكن لاحقًا إرساله كملف
-            return require('axios').post(`https://api.telegram.org/bot${process.env.TOKEN}/sendMessage`, {
-                chat_id: chatId,
-                text: `💬 بيانات chat.json:\n${data}`
-            });
-
+            filePath = path.join(monitorPath, 'chat.json');
+            fileName = 'chat.json';
         } else if (option === "group") {
-            const groupFile = path.join(basePath, 'monitor', 'idGroup.json');
-            if (!fs.existsSync(groupFile)) {
-                return require('axios').post(`https://api.telegram.org/bot${process.env.TOKEN}/sendMessage`, {
-                    chat_id: chatId,
-                    text: "❌ لا يوجد ملف idGroup.json"
-                });
-            }
-            const data = fs.readFileSync(groupFile, 'utf-8');
-            return require('axios').post(`https://api.telegram.org/bot${process.env.TOKEN}/sendMessage`, {
-                chat_id: chatId,
-                text: `👥 بيانات idGroup.json:\n${data}`
-            });
-
+            filePath = path.join(monitorPath, 'idGroup.json');
+            fileName = 'idGroup.json';
         } else {
-            return require('axios').post(`https://api.telegram.org/bot${process.env.TOKEN}/sendMessage`, {
+            return axios.post(`https://api.telegram.org/bot${process.env.TOKEN}/sendMessage`, {
                 chat_id: chatId,
                 text: "❌ خيار غير معروف. استخدم /chat أو /group"
             });
         }
+
+        if (!fs.existsSync(filePath)) {
+            return axios.post(`https://api.telegram.org/bot${process.env.TOKEN}/sendMessage`, {
+                chat_id: chatId,
+                text: `❌ لا يوجد ملف ${fileName}`
+            });
+        }
+
+        // إرسال الملف مباشرة للبوت كملف JSON
+        return axios.post(`https://api.telegram.org/bot${process.env.TOKEN}/sendDocument`, {
+            chat_id: chatId,
+            document: fs.createReadStream(filePath)
+        }).then(() => {
+            console.log(`✅ تم إرسال ملف ${fileName} للمستخدم ${message.from.username || message.from.id}`);
+        }).catch(err => {
+            console.error(`❌ خطأ في إرسال الملف: ${err.message}`);
+        });
     }
 };
