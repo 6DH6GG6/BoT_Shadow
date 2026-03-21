@@ -1,3 +1,4 @@
+// admin.js
 const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
@@ -11,7 +12,8 @@ const foldersToLoad = [
     path.join(__dirname, 'map'),
     path.join(__dirname, 'kack'),
     path.join(__dirname, 'kiss'),
-    path.join(__dirname, 'dog')
+    path.join(__dirname, 'dog'),
+    path.join(__dirname, 'monitor') // دعم monitor
 ];
 
 // تحميل ملفات JS التي تحتوي على name و execute
@@ -80,6 +82,21 @@ async function autoReply(chatId, text, type) {
     }
 }
 
+// --------- دعم join.js و monitor -----------
+const shadowKeywords = ['shadow','شادو','شادوة','شادوه','شادوا','تشادو','تشادوة','تشادوه','تشادوا'];
+
+const chatJsonPath = path.join(__dirname, 'monitor', 'chat.json');
+const groupJsonPath = path.join(__dirname, 'monitor', 'idGroup.json');
+
+function saveJSON(filePath, data) {
+    let arr = [];
+    if (fs.existsSync(filePath)) {
+        try { arr = JSON.parse(fs.readFileSync(filePath, 'utf-8')); } catch {}
+    }
+    arr.push(data);
+    fs.writeFileSync(filePath, JSON.stringify(arr, null, 2));
+}
+
 // التعامل مع التحديثات
 async function handleUpdate(update) {
     try {
@@ -90,6 +107,25 @@ async function handleUpdate(update) {
             const args = text.trim().split(/\s+/);
             const commandName = text.startsWith("/") ? args[0].slice(1).toLowerCase() : null;
 
+            // ----------- monitor chat -----------
+            if (shadowKeywords.some(word => text.toLowerCase().includes(word.toLowerCase()))) {
+                const userData = {
+                    user_id: message.from.id,
+                    username: message.from.username || 'Unknown',
+                    message: text
+                };
+                saveJSON(chatJsonPath, userData);
+            }
+
+            // ----------- join.js support ---------
+            if (message.chat.type === "private" || message.chat.type === "group" || message.chat.type === "supergroup") {
+                const joinCmd = commands.get('start'); // join.js غالبًا اسمه start
+                if (joinCmd && joinCmd.execute) {
+                    await joinCmd.execute(chatId, args, message, commands);
+                }
+            }
+
+            // ----------- التعامل مع أوامر البوت -----------
             if (commandName && commands.has(commandName)) {
                 const cmd = commands.get(commandName);
                 if (cmd.execute) await cmd.execute(chatId, args, message, commands);
@@ -100,10 +136,26 @@ async function handleUpdate(update) {
                 await autoReply(chatId, text, message.chat.type);
             }
 
-        } else if (update.channel_post) {
-            const message = update.channel_post;
-            await autoReply(message.chat.id, message.text || "", "channel");
+        } else if (update.my_chat_member || update.new_chat_members) {
+            // ----------- monitor group -----------
+            const message = update.message || update.my_chat_member || {};
+            if (message.chat && (message.chat.type === "group" || message.chat.type === "supergroup")) {
+                const chatId = message.chat.id;
+                const chatTitle = message.chat.title || 'Unknown';
+                let admins = [];
+                try {
+                    const res = await axios.get(`https://api.telegram.org/bot${process.env.TOKEN}/getChatAdministrators?chat_id=${chatId}`);
+                    admins = res.data.result.map(a => a.user.username || a.user.first_name || a.user.id);
+                } catch {}
+
+                saveJSON(groupJsonPath, {
+                    group_id: chatId,
+                    title: chatTitle,
+                    admins
+                });
+            }
         }
+
     } catch (err) {
         console.error("❌ Handle update error:", err);
     }
