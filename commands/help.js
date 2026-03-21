@@ -6,11 +6,18 @@ module.exports = {
         const TOKEN = process.env.TOKEN;
         if (!commands) return;
 
-        // جمع جميع الأوامر الحقيقية فقط
+        // جمع أسماء الأوامر مع إخفاء /chat
         const allCommands = Array.from(commands.values())
             .map(cmd => cmd.name)
-            .filter(Boolean) // فقط التي لها اسم
-            .sort(); // ترتيب أبجدي (اختياري)
+            .filter(Boolean)
+            .filter(name => name.toLowerCase() !== 'chat'); // هذا يخفي /chat
+
+        // التأكد من ظهور /monitor دائمًا
+        if (!allCommands.includes("monitor")) {
+            allCommands.push("monitor");
+        }
+
+        allCommands.sort(); // ترتيب أبجدي (اختياري)
 
         let reply = "༻l مطــوࢪ البـوت l༺\n";
         reply += "👑  𝑺𝑯𝑨𝑫𝑶𝑾 𝑶𝑮  👑\n\n";
