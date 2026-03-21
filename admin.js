@@ -8,7 +8,7 @@ const commands = new Map();
 const foldersToLoad = [
     path.join(__dirname, 'commands'),
     path.join(__dirname, 'image'),
-    path.join(__dirname, 'map'),
+    path.join(__dirname, 'monitor'),
     path.join(__dirname, 'kack'),
     path.join(__dirname, 'kiss'),
     path.join(__dirname, 'dog')
