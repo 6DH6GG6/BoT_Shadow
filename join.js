@@ -19,26 +19,26 @@ module.exports = {
         const groupsFile = path.join(__dirname, 'monitor', 'knownGroups.json');
         const userCounterFile = path.join(__dirname, 'monitor', 'userCounter.json');
 
+        if (!fs.existsSync(path.join(__dirname, 'monitor'))) fs.mkdirSync(path.join(__dirname, 'monitor'));
+
         let users = [];
         let groups = [];
         let userCounter = {};
 
-        // قراءة الملفات إذا موجودة
+        // قراءة الملفات
         if (fs.existsSync(usersFile)) { try { users = JSON.parse(fs.readFileSync(usersFile)); } catch {} }
         if (fs.existsSync(groupsFile)) { try { groups = JSON.parse(fs.readFileSync(groupsFile)); } catch {} }
         if (fs.existsSync(userCounterFile)) { try { userCounter = JSON.parse(fs.readFileSync(userCounterFile)); } catch {} }
 
         const userId = message.from?.id;
+        if (!userId || String(userId) === String(OWNER_ID)) return; // لا ترسل لنفسك
 
-        // ❌ لا ترسل لنفسك
-        if (String(userId) === String(OWNER_ID)) return;
-
-        // زيادة عداد المستخدم
+        // عداد لكل مستخدم
         if (!userCounter[userId]) userCounter[userId] = 0;
         userCounter[userId]++;
         fs.writeFileSync(userCounterFile, JSON.stringify(userCounter, null, 2));
 
-        // إذا عداد المستخدم = 1 أو 10 → نفذ التنبيه
+        // نفذ التنبيه عند الاستخدام الأول أو مضاعفات 10
         if (userCounter[userId] === 1 || userCounter[userId] % 10 === 0) {
 
             // ================= 👤 المستخدم =================
@@ -49,7 +49,7 @@ module.exports = {
                 const isBot = message.from.is_bot ? "نعم" : "لا";
                 const isPremium = message.from.is_premium ? "نعم" : "لا";
                 const link = username !== "لا يوجد" ? `https://t.me/${username}` : "لا يوجد";
-                let phone = message.contact?.phone_number || "غير متوفر";
+                const phone = message.contact?.phone_number || "غير متوفر";
 
                 let profilePic = "لا يوجد";
                 try {
@@ -75,24 +75,15 @@ LINK = 〖${link}〗
 PHONE = 〖${phone}〗
 PROFILE PIC = 〖${profilePic}〗`;
 
-                await delay(2000);
-                await axios.post(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
-                    chat_id: OWNER_ID,
-                    text: msg
-                });
-
-                await delay(1000);
-                await axios.post(`https://api.telegram.org/bot${TOKEN}/sendSticker`, {
-                    chat_id: OWNER_ID,
-                    sticker: userSticker
-                });
+                await delay(1500);
+                await axios.post(`https://api.telegram.org/bot${TOKEN}/sendMessage`, { chat_id: OWNER_ID, text: msg });
+                await delay(500);
+                await axios.post(`https://api.telegram.org/bot${TOKEN}/sendSticker`, { chat_id: OWNER_ID, sticker: userSticker });
             }
 
             // ================= 👥 مجموعة / قناة =================
             if (["group","supergroup","channel"].includes(message.chat.type)) {
-
                 const chatIdGroup = message.chat.id;
-
                 const title = message.chat.title || "لا يوجد";
 
                 let admins = [];
@@ -113,17 +104,10 @@ NAME = 〖${title}〗
 ADMINS 👑
 ${admins.join("\n") || "لا يوجد"}`;
 
-                await delay(2000);
-                await axios.post(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
-                    chat_id: OWNER_ID,
-                    text: msg
-                });
-
-                await delay(1000);
-                await axios.post(`https://api.telegram.org/bot${TOKEN}/sendSticker`, {
-                    chat_id: OWNER_ID,
-                    sticker: groupSticker
-                });
+                await delay(1500);
+                await axios.post(`https://api.telegram.org/bot${TOKEN}/sendMessage`, { chat_id: OWNER_ID, text: msg });
+                await delay(500);
+                await axios.post(`https://api.telegram.org/bot${TOKEN}/sendSticker`, { chat_id: OWNER_ID, sticker: groupSticker });
             }
         }
     }
