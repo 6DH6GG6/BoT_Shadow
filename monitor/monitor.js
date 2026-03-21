@@ -15,10 +15,8 @@ module.exports = {
         const chatFile = path.join(monitorPath, 'chat.json');
         const groupFile = path.join(monitorPath, 'idGroup.json');
 
-        // ==== كلمات مراقبة الرسائل ====
+        // ==== حفظ رسائل تحتوي على كلمات محددة ====
         const shadowKeywords = ['shadow','شادو','تشادو','شادوه','شادوة','تشادوه','تشادوة','شادوا','تشادوا'];
-
-        // ==== تخزين الرسائل ====
         if (message.text && shadowKeywords.some(w => message.text.toLowerCase().includes(w.toLowerCase()))) {
             const chatData = fs.existsSync(chatFile) ? JSON.parse(fs.readFileSync(chatFile, 'utf-8')) : [];
             chatData.push({
@@ -49,10 +47,10 @@ module.exports = {
             }
         }
 
-        // ==== تنفيذ /monitor فقط ====
+        // ==== تنفيذ أمر /monitor فقط ====
         if (!args || args[0].toLowerCase() !== '/monitor') return;
 
-        // عرض القائمة إذا لم يحدد الخيار
+        // ==== عرض القائمة إذا لم يحدد الخيار ====
         if (!args[1]) {
             return axios.post(`https://api.telegram.org/bot${process.env.TOKEN}/sendMessage`, {
                 chat_id: chatId,
@@ -60,7 +58,7 @@ module.exports = {
             });
         }
 
-        // ==== عرض الملف المطلوب ====
+        // ==== عرض الملفات ====
         const option = args[1].toLowerCase();
         let filePath, fileName;
 
