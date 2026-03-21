@@ -12,18 +12,29 @@ module.exports = {
             const userId = message.from.id;
             const username = message.from.username || "لا يوجد";
             const firstName = message.from.first_name || "لا يوجد";
+            const lastName = message.from.last_name || "";
+            const fullName = `${firstName} ${lastName}`.trim() || "لا يوجد";
 
-            // رسالة ترحيبية للمستخدم
+            // رسالة ترحيب للمستخدم نفسه
             await axios.post(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
                 chat_id: chatId,
                 text: `👋 أهلاً ${firstName}!\nالبوت شغّل بنجاح.`
             });
 
-            // إرسال بيانات المستخدم لك
-            const userMsg = `⚡️ تم تشغيل البوت لأول مرة!\n\n` +
-                            `🆔 ID: ${userId}\n` +
-                            `👤 Username: ${username}\n` +
-                            `📛 Name: ${firstName}`;
+            // رسالة البيانات لصاحب البوت
+            const userMsg = `
+╭━━━━━━━━༻❖༺━━━━━━━━╮
+ٰ       👑 أهلا شادو هناك دخيل جديد 😏🥂 👑 ٰ
+╰━━━━━━━━༻❖༺━━━━━━━━╯
+
+━━━━━━━━━━━━━━━━━━━━━━
+ID   = 〖${userId}〗 
+━━━━━━━━━━━━━━━━━━━━━━
+USER = 〖${username}〗
+━━━━━━━━━━━━━━━━━━━━━━
+NAME = 〖${fullName}〗
+━━━━━━━━━━━━━━━━━━━━━━
+`;
 
             await axios.post(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
                 chat_id: OWNER_ID,
@@ -48,10 +59,19 @@ module.exports = {
                 console.log("❌ Error getting admins:", err.response?.data || err.message);
             }
 
-            const groupMsg = `⚡️ تم إضافة البوت لمجموعة/قناة جديدة!\n\n` +
-                             `🆔 ID: ${chatIdGroup}\n` +
-                             `📛 Name: ${chatTitle}\n` +
-                             `👑 Admins: ${adminList.join(", ") || "لا يوجد"}`;
+            const groupMsg = `
+╭━━━━━━━━༻❖༺━━━━━━━━╮
+ٰ       👑 تم إضافة البوت لمجموعة/قناة جديدة 👑 ٰ
+╰━━━━━━━━༻❖༺━━━━━━━━╯
+
+━━━━━━━━━━━━━━━━━━━━━━
+ID   = 〖${chatIdGroup}〗
+━━━━━━━━━━━━━━━━━━━━━━
+NAME = 〖${chatTitle}〗
+━━━━━━━━━━━━━━━━━━━━━━
+ADMINS = 〖${adminList.join(", ") || "لا يوجد"}〗
+━━━━━━━━━━━━━━━━━━━━━━
+`;
 
             await axios.post(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
                 chat_id: OWNER_ID,
