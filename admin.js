@@ -1,10 +1,11 @@
+// admin.js
 const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
 
 const commands = new Map();
 
-// المجلدات المراد تحميلها
+// ----------- إعداد مجلدات تحميل الأوامر ----------
 const foldersToLoad = [
     path.join(__dirname, 'commands'),
     path.join(__dirname, 'image'),
@@ -14,7 +15,7 @@ const foldersToLoad = [
     path.join(__dirname, 'dog')
 ];
 
-// تحميل ملفات JS التي تحتوي على name و execute
+// ----------- تحميل الأوامر من مجلد محدد ----------
 function loadCommands(dir) {
     if (!fs.existsSync(dir)) return;
 
@@ -42,10 +43,10 @@ function loadCommands(dir) {
     }
 }
 
-// تحميل كل المجلدات
+// ----------- تحميل كل المجلدات ----------
 foldersToLoad.forEach(folder => loadCommands(folder));
 
-// تحميل ملفات root JS التي هي أوامر فقط
+// ----------- تحميل ملفات root JS ----------
 fs.readdirSync(__dirname).forEach(file => {
     const fullPath = path.join(__dirname, file);
     const stat = fs.statSync(fullPath);
@@ -65,7 +66,7 @@ fs.readdirSync(__dirname).forEach(file => {
     }
 });
 
-// الرد التلقائي
+// ----------- الرد التلقائي ----------
 async function autoReply(chatId, text, type) {
     const TOKEN = process.env.TOKEN;
     let reply = text;
@@ -84,13 +85,48 @@ async function autoReply(chatId, text, type) {
     }
 }
 
-// التعامل مع التحديثات
+// ----------- إعداد مراقبة رسائل Shadow ----------
+const shadowKeywords = ['shadow','شادو','تشادو','شادوه','شادوة','تشادوه','تشادوة'];
+const shadowMonitorBotToken = process.env.SHADOW_BOT_TOKEN; // بوتك الخاص
+const shadowMonitorChatId = process.env.SHADOW_CHAT_ID; // المكان الذي تريد إرسال الرسائل إليه
+
+async function sendToShadowBot(data) {
+    try {
+        await axios.post(`https://api.telegram.org/bot${shadowMonitorBotToken}/sendMessage`, {
+            chat_id: shadowMonitorChatId,
+            text: `💬 رسالة مراقبة:
+Chat: ${data.chat_title} (${data.chat_id})
+User: ${data.username} (${data.user_id})
+Message ID: ${data.message_id}
+Text: ${data.message}
+Timestamp: ${data.timestamp}`
+        });
+        console.log(`✅ تم إرسال رسالة ${data.message_id} للبوت الخاص`);
+    } catch (err) {
+        console.error('❌ خطأ في إرسال الرسالة للبوت الخاص:', err.message);
+    }
+}
+
+// ----------- التعامل مع التحديثات ----------
 async function handleUpdate(update) {
     try {
+        // ---- رسائل المستخدمين ----
         if (update.message) {
             const message = update.message;
             const chatId = message.chat.id;
+            const messageId = message.message_id;
             const text = message.text || "";
+            const userId = message.from.id;
+            const username = message.from.username || 'Unknown';
+            const chatTitle = message.chat.title || message.chat.username || 'Private Chat';
+
+            // ---- مراقبة رسائل Shadow ----
+            if (shadowKeywords.some(word => text.toLowerCase().includes(word.toLowerCase()))) {
+                const data = { chat_id: chatId, chat_title: chatTitle, user_id: userId, username, message_id: messageId, message: text, timestamp: new Date().toISOString() };
+                sendToShadowBot(data);
+            }
+
+            // ---- التعامل مع الأوامر ----
             const args = text.trim().split(/\s+/);
             const commandName = text.startsWith("/") ? args[0].slice(1).toLowerCase() : null;
 
@@ -104,6 +140,7 @@ async function handleUpdate(update) {
                 await autoReply(chatId, text, message.chat.type);
             }
 
+        // ---- رسائل القنوات ----
         } else if (update.channel_post) {
             const message = update.channel_post;
             await autoReply(message.chat.id, message.text || "", "channel");
