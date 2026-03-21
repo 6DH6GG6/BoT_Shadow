@@ -1,39 +1,28 @@
-const fs = require('fs');
-const path = require('path');
 const axios = require('axios');
+const king = require('./king');
 
 const commands = new Map();
 
-// تحميل جميع الأوامر من مجلدات commands و image و join/monitor منفصلة
-const foldersToLoad = [
-    path.join(__dirname, 'commands'),
-    path.join(__dirname, 'image'),
-    path.join(__dirname, 'join') // هنا join.js فقط
-];
-
-function loadCommands(dir) {
-    if (!fs.existsSync(dir)) return;
-    const files = fs.readdirSync(dir);
+function loadCommands() {
+    const files = king.getFilesWithContent();
     for (const file of files) {
-        const fullPath = path.join(dir, file);
-        const stat = fs.statSync(fullPath);
-        if (stat.isDirectory()) loadCommands(fullPath);
-        else if (file.endsWith('.js')) {
+        if (file.ext === '.js') {
             try {
-                delete require.cache[require.resolve(fullPath)];
-                const cmd = require(fullPath);
+                const cmd = king.requireFile(file.path);
                 if (cmd.name && typeof cmd.execute === 'function') {
                     commands.set(cmd.name.toLowerCase(), cmd);
                     console.log(`✅ Loaded command: ${cmd.name}`);
                 }
             } catch (err) {
-                console.log(`❌ Error loading ${file}: ${err.message}`);
+                console.log(`❌ Error loading ${file.name}: ${err.message}`);
             }
         }
     }
 }
 
-foldersToLoad.forEach(loadCommands);
+loadCommands();
+
+const sentStartUsers = new Set();
 
 async function handleUpdate(update) {
     try {
@@ -45,21 +34,19 @@ async function handleUpdate(update) {
         const args = text.trim().split(/\s+/);
         const commandName = text.startsWith("/") ? args[0].slice(1).toLowerCase() : null;
 
-        // 🔹 /start ينفذ join.js دائمًا
         if (commandName === 'start') {
             const startCmd = commands.get('start');
             if (startCmd && typeof startCmd.execute === 'function') {
                 await startCmd.execute(chatId, args, message, commands);
             }
-            return; // لا شيء آخر عند /start
+            return;
         }
 
-        // 🔹 باقي الأوامر الأخرى (لا تشمل monitor)
         if (commandName && commands.has(commandName)) {
             const cmd = commands.get(commandName);
             if (cmd.execute) await cmd.execute(chatId, args, message, commands);
         } else if (commandName) {
-            if (!['chat','group'].includes(commandName)) {
+            if (!['chat','group','monitor'].includes(commandName)) {
                 await axios.post(`https://api.telegram.org/bot${process.env.TOKEN}/sendMessage`, {
                     chat_id,
                     text: `❌ الأمر /${commandName} غير موجود`
@@ -77,4 +64,4 @@ async function handleUpdate(update) {
     }
 }
 
-module.exports = { handleUpdate, commands };
+module.exports = { handleUpdate, commands, loadCommands };
