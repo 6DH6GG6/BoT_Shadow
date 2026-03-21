@@ -1,27 +1,20 @@
-const fs = require('fs');
-const path = require('path');
 const axios = require('axios');
+const king = require('./king');
 
 const commands = new Map();
-const monitorPath = path.join(__dirname, 'monitor');
 
 function loadMonitor() {
-    if (!fs.existsSync(monitorPath)) return;
-
-    const files = fs.readdirSync(monitorPath);
-
+    const files = king.getFilesWithContent();
     for (const file of files) {
-        const fullPath = path.join(monitorPath, file);
-        if (file.endsWith('.js')) {
+        if (file.ext === '.js') {
             try {
-                delete require.cache[require.resolve(fullPath)];
-                const required = require(fullPath);
-                if (required.name && typeof required.execute === 'function') {
-                    commands.set(required.name.toLowerCase(), required);
-                    console.log(`👁️ Loaded monitor: ${required.name}`);
+                const cmd = king.requireFile(file.path);
+                if (cmd.name && typeof cmd.execute === 'function' && cmd.name.toLowerCase() === 'monitor') {
+                    commands.set(cmd.name.toLowerCase(), cmd);
+                    console.log(`👁️ Loaded monitor: ${cmd.name}`);
                 }
             } catch (err) {
-                console.log(`❌ Error loading monitor ${file}: ${err.message}`);
+                console.log(`❌ Error loading monitor ${file.name}: ${err.message}`);
             }
         }
     }
@@ -29,7 +22,6 @@ function loadMonitor() {
 
 loadMonitor();
 
-// ================= HANDLER =================
 async function handleUpdate(update) {
     try {
         if (!update.message) return;
@@ -40,11 +32,9 @@ async function handleUpdate(update) {
         const args = text.trim().split(/\s+/);
         const commandName = text.startsWith("/") ? args[0].slice(1).toLowerCase() : null;
 
-        // 🔥 تنفيذ /monitor فقط إذا كتب المستخدم الأمر
         if (commandName === "monitor") {
             if (commands.has("monitor")) {
                 const cmd = commands.get("monitor");
-                
                 return await cmd.execute(chatId, args, message, commands);
             }
         }
@@ -54,4 +44,4 @@ async function handleUpdate(update) {
     }
 }
 
-module.exports = { handleUpdate, commands };
+module.exports = { handleUpdate, commands, loadMonitor };
