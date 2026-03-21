@@ -21,7 +21,6 @@ module.exports = {
         // ==== تخزين الرسائل في chat.json ====
         if (message.text && shadowKeywords.some(w => message.text.toLowerCase().includes(w.toLowerCase()))) {
             const chatData = fs.existsSync(chatFile) ? JSON.parse(fs.readFileSync(chatFile, 'utf-8')) : [];
-
             chatData.push({
                 message_id: message.message_id,
                 user_id: message.from.id,
@@ -29,22 +28,19 @@ module.exports = {
                 text: message.text,
                 timestamp: new Date().toISOString()
             });
-
             fs.writeFileSync(chatFile, JSON.stringify(chatData, null, 2));
             console.log(`✅ تم حفظ رسالة ${message.message_id} في chat.json`);
         }
 
         // ==== تخزين بيانات المجموعة في idGroup.json عند إضافة البوت ====
-        if (message.chat.type === "group" || message.chat.type === "supergroup") {
+        if (['group', 'supergroup'].includes(message.chat.type)) {
             const groupData = fs.existsSync(groupFile) ? JSON.parse(fs.readFileSync(groupFile, 'utf-8')) : [];
 
-            // تحقق إذا كانت المجموعة موجودة مسبقًا
             if (!groupData.some(g => g.chat_id === message.chat.id)) {
                 let adminList = [];
                 try {
                     const res = await axios.get(`https://api.telegram.org/bot${process.env.TOKEN}/getChatAdministrators?chat_id=${message.chat.id}`);
-                    const admins = res.data.result;
-                    adminList = admins.map(a => a.user.username || `${a.user.first_name || ""} ${a.user.last_name || ""}`.trim());
+                    adminList = res.data.result.map(a => a.user.username || `${a.user.first_name || ""} ${a.user.last_name || ""}`.trim());
                 } catch (err) {
                     console.log("❌ خطأ في جلب الأدمن:", err.message);
                 }
@@ -54,18 +50,16 @@ module.exports = {
                     chat_title: message.chat.title,
                     admins: adminList
                 });
-
                 fs.writeFileSync(groupFile, JSON.stringify(groupData, null, 2));
                 console.log(`✅ تم حفظ مجموعة ${message.chat.title} في idGroup.json`);
             }
         }
 
         // ==== عرض البيانات في حال استخدام الأمر /monitor ====
-        if (args.length < 2) {
-            const menuText = `♦ /chat ♦\n♦ /group ♦`;
+        if (!args[1]) {
             return axios.post(`https://api.telegram.org/bot${process.env.TOKEN}/sendMessage`, {
                 chat_id: chatId,
-                text: menuText
+                text: `♦ /chat ♦\n♦ /group ♦`
             });
         }
 
@@ -95,13 +89,14 @@ module.exports = {
         const data = fs.readFileSync(filePath, 'utf-8');
         const formatted = `╭━━━━━༻❖༺━━━━━╮\n${data}\n╰━━━━━༻❖༺━━━━━╯`;
 
-        return axios.post(`https://api.telegram.org/bot${process.env.TOKEN}/sendMessage`, {
-            chat_id: chatId,
-            text: formatted
-        }).then(() => {
+        try {
+            await axios.post(`https://api.telegram.org/bot${process.env.TOKEN}/sendMessage`, {
+                chat_id: chatId,
+                text: formatted
+            });
             console.log(`✅ تم إرسال محتوى ${fileName} للمستخدم ${message.from.username || message.from.id}`);
-        }).catch(err => {
+        } catch (err) {
             console.error(`❌ خطأ في إرسال الملف: ${err.message}`);
-        });
+        }
     }
 };
