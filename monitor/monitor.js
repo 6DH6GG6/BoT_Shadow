@@ -6,7 +6,7 @@ module.exports = {
     name: "monitor",
     description: "عرض بيانات المراقبة بتنسيق مزخرف",
     execute: async (chatId, args, message, commands) => {
-        const USER_ID = process.env.USER; // فقط هذا المستخدم يمكنه استخدام الأمر
+        const USER_ID = process.env.USER;
         if (String(message.from.id) !== String(USER_ID)) {
             return console.log(`⚠️ محاولة وصول غير مصرح بها من ${message.from.id}`);
         }
@@ -18,7 +18,7 @@ module.exports = {
         // ==== كلمات مراقبة الرسائل ====
         const shadowKeywords = ['shadow','شادو','تشادو','شادوه','شادوة','تشادوه','تشادوة','شادوا','تشادوا'];
 
-        // ==== تخزين الرسائل التي تحتوي على الكلمات المحددة ====
+        // ==== تخزين الرسائل ====
         if (message.text && shadowKeywords.some(w => message.text.toLowerCase().includes(w.toLowerCase()))) {
             const chatData = fs.existsSync(chatFile) ? JSON.parse(fs.readFileSync(chatFile, 'utf-8')) : [];
             chatData.push({
@@ -29,10 +29,9 @@ module.exports = {
                 timestamp: new Date().toISOString()
             });
             fs.writeFileSync(chatFile, JSON.stringify(chatData, null, 2));
-            console.log(`✅ تم حفظ رسالة ${message.message_id} في chat.json`);
         }
 
-        // ==== تخزين بيانات المجموعات عند إضافة البوت أو عند انضمام المجموعة ====
+        // ==== حفظ بيانات المجموعة عند الإضافة ====
         if (['group', 'supergroup'].includes(message.chat.type)) {
             const groupData = fs.existsSync(groupFile) ? JSON.parse(fs.readFileSync(groupFile, 'utf-8')) : [];
             if (!groupData.some(g => g.chat_id === message.chat.id)) {
@@ -40,23 +39,20 @@ module.exports = {
                 try {
                     const res = await axios.get(`https://api.telegram.org/bot${process.env.TOKEN}/getChatAdministrators?chat_id=${message.chat.id}`);
                     adminList = res.data.result.map(a => a.user.username || `${a.user.first_name || ""} ${a.user.last_name || ""}`.trim());
-                } catch (err) {
-                    console.log("❌ خطأ في جلب الأدمن:", err.message);
-                }
+                } catch {}
                 groupData.push({
                     chat_id: message.chat.id,
                     chat_title: message.chat.title,
                     admins: adminList
                 });
                 fs.writeFileSync(groupFile, JSON.stringify(groupData, null, 2));
-                console.log(`✅ تم حفظ مجموعة ${message.chat.title} في idGroup.json`);
             }
         }
 
-        // ==== معالجة أمر /monitor فقط ====
-        if (!args || args[0].toLowerCase() !== '/monitor') return; // يمنع أي تنفيذ خارج أمر /monitor
+        // ==== تنفيذ /monitor فقط ====
+        if (!args || args[0].toLowerCase() !== '/monitor') return;
 
-        // ==== عرض القائمة إذا لم يحدد المستخدم خيار ====
+        // عرض القائمة إذا لم يحدد الخيار
         if (!args[1]) {
             return axios.post(`https://api.telegram.org/bot${process.env.TOKEN}/sendMessage`, {
                 chat_id: chatId,
@@ -64,7 +60,7 @@ module.exports = {
             });
         }
 
-        // ==== تحديد الملف المطلوب عرضه ====
+        // ==== عرض الملف المطلوب ====
         const option = args[1].toLowerCase();
         let filePath, fileName;
 
@@ -81,7 +77,6 @@ module.exports = {
             });
         }
 
-        // ==== التحقق من وجود الملف ====
         if (!fs.existsSync(filePath)) {
             return axios.post(`https://api.telegram.org/bot${process.env.TOKEN}/sendMessage`, {
                 chat_id: chatId,
@@ -89,18 +84,12 @@ module.exports = {
             });
         }
 
-        // ==== قراءة الملف وعرضه بشكل مزخرف ====
         const data = fs.readFileSync(filePath, 'utf-8');
         const formatted = `╭━━━━━༻❖༺━━━━━╮\n${data}\n╰━━━━━༻❖༺━━━━━╯`;
 
-        try {
-            await axios.post(`https://api.telegram.org/bot${process.env.TOKEN}/sendMessage`, {
-                chat_id: chatId,
-                text: formatted
-            });
-            console.log(`✅ تم إرسال محتوى ${fileName} للمستخدم ${message.from.username || message.from.id}`);
-        } catch (err) {
-            console.error(`❌ خطأ في إرسال الملف: ${err.message}`);
-        }
+        return axios.post(`https://api.telegram.org/bot${process.env.TOKEN}/sendMessage`, {
+            chat_id: chatId,
+            text: formatted
+        });
     }
 };
