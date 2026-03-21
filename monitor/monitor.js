@@ -6,7 +6,7 @@ module.exports = {
     name: "monitor",
     description: "عرض بيانات المراقبة بتنسيق مزخرف",
     execute: async (chatId, args, message, commands) => {
-        const USER_ID = process.env.USER;
+        const USER_ID = process.env.USER; // فقط هذا المستخدم يمكنه استخدام الأمر
         if (String(message.from.id) !== String(USER_ID)) {
             return console.log(`⚠️ محاولة وصول غير مصرح بها من ${message.from.id}`);
         }
@@ -54,7 +54,7 @@ module.exports = {
         if (!args[1]) {
             return axios.post(`https://api.telegram.org/bot${process.env.TOKEN}/sendMessage`, {
                 chat_id: chatId,
-                text: `♦ /monitor chat ♦\n♦ /monitor group ♦`
+                text: `♦ /chat ♦\n♦ /group ♦` // ✅ تم تعديل النص
             });
         }
 
