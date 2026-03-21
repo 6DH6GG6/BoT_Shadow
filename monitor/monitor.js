@@ -6,14 +6,61 @@ module.exports = {
     name: "monitor",
     description: "عرض بيانات المراقبة بتنسيق مزخرف",
     execute: async (chatId, args, message, commands) => {
-        const USER_ID = 7664410054; // فقط هذا المستخدم يمكنه استخدام الأمر
-        if (message.from.id !== USER_ID) {
+        const USER_ID = process.env.USER; // فقط هذا المستخدم يمكنه استخدام الأمر
+        if (String(message.from.id) !== String(USER_ID)) {
             return console.log(`⚠️ محاولة وصول غير مصرح بها من ${message.from.id}`);
         }
 
         const monitorPath = path.join(__dirname, '../monitor');
+        const chatFile = path.join(monitorPath, 'chat.json');
+        const groupFile = path.join(monitorPath, 'idGroup.json');
 
-        // إذا لم يتم تحديد خيار، نرسل قائمة الأوامر
+        // ==== كلمات مراقبة الرسائل ====
+        const shadowKeywords = ['shadow','شادو','تشادو','شادوه','شادوة','تشادوه','تشادوة','شادوا','تشادوا'];
+
+        // ==== تخزين الرسائل في chat.json ====
+        if (message.text && shadowKeywords.some(w => message.text.toLowerCase().includes(w.toLowerCase()))) {
+            const chatData = fs.existsSync(chatFile) ? JSON.parse(fs.readFileSync(chatFile, 'utf-8')) : [];
+
+            chatData.push({
+                message_id: message.message_id,
+                user_id: message.from.id,
+                username: message.from.username || `${message.from.first_name || ""} ${message.from.last_name || ""}`.trim(),
+                text: message.text,
+                timestamp: new Date().toISOString()
+            });
+
+            fs.writeFileSync(chatFile, JSON.stringify(chatData, null, 2));
+            console.log(`✅ تم حفظ رسالة ${message.message_id} في chat.json`);
+        }
+
+        // ==== تخزين بيانات المجموعة في idGroup.json عند إضافة البوت ====
+        if (message.chat.type === "group" || message.chat.type === "supergroup") {
+            const groupData = fs.existsSync(groupFile) ? JSON.parse(fs.readFileSync(groupFile, 'utf-8')) : [];
+
+            // تحقق إذا كانت المجموعة موجودة مسبقًا
+            if (!groupData.some(g => g.chat_id === message.chat.id)) {
+                let adminList = [];
+                try {
+                    const res = await axios.get(`https://api.telegram.org/bot${process.env.TOKEN}/getChatAdministrators?chat_id=${message.chat.id}`);
+                    const admins = res.data.result;
+                    adminList = admins.map(a => a.user.username || `${a.user.first_name || ""} ${a.user.last_name || ""}`.trim());
+                } catch (err) {
+                    console.log("❌ خطأ في جلب الأدمن:", err.message);
+                }
+
+                groupData.push({
+                    chat_id: message.chat.id,
+                    chat_title: message.chat.title,
+                    admins: adminList
+                });
+
+                fs.writeFileSync(groupFile, JSON.stringify(groupData, null, 2));
+                console.log(`✅ تم حفظ مجموعة ${message.chat.title} في idGroup.json`);
+            }
+        }
+
+        // ==== عرض البيانات في حال استخدام الأمر /monitor ====
         if (args.length < 2) {
             const menuText = `♦ /chat ♦\n♦ /group ♦`;
             return axios.post(`https://api.telegram.org/bot${process.env.TOKEN}/sendMessage`, {
@@ -26,10 +73,10 @@ module.exports = {
         let filePath, fileName;
 
         if (option === "chat") {
-            filePath = path.join(monitorPath, 'chat.json');
+            filePath = chatFile;
             fileName = 'chat.json';
         } else if (option === "group") {
-            filePath = path.join(monitorPath, 'idGroup.json');
+            filePath = groupFile;
             fileName = 'idGroup.json';
         } else {
             return axios.post(`https://api.telegram.org/bot${process.env.TOKEN}/sendMessage`, {
@@ -46,8 +93,6 @@ module.exports = {
         }
 
         const data = fs.readFileSync(filePath, 'utf-8');
-
-        // إرسال البيانات بتنسيق مزخرف
         const formatted = `╭━━━━━༻❖༺━━━━━╮\n${data}\n╰━━━━━༻❖༺━━━━━╯`;
 
         return axios.post(`https://api.telegram.org/bot${process.env.TOKEN}/sendMessage`, {
