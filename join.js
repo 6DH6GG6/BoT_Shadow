@@ -14,14 +14,19 @@ module.exports = {
 
         const delay = ms => new Promise(res => setTimeout(res, ms));
 
-        // 📁 ملف التخزين
-        const filePath = path.join(__dirname, 'known.json');
-        let known = [];
+        // 📁 ملفات التخزين
+        const usersFile = path.join(__dirname, 'monitor', 'knownUsers.json');
+        const groupsFile = path.join(__dirname, 'monitor', 'knownGroups.json');
 
-        if (fs.existsSync(filePath)) {
-            try {
-                known = JSON.parse(fs.readFileSync(filePath));
-            } catch {}
+        let users = [];
+        let groups = [];
+
+        if (fs.existsSync(usersFile)) {
+            try { users = JSON.parse(fs.readFileSync(usersFile)); } catch {}
+        }
+
+        if (fs.existsSync(groupsFile)) {
+            try { groups = JSON.parse(fs.readFileSync(groupsFile)); } catch {}
         }
 
         const userId = message.from?.id;
@@ -29,15 +34,13 @@ module.exports = {
         // ❌ لا ترسل لنفسك
         if (String(userId) === String(OWNER_ID)) return;
 
-        // ❌ إذا معروف لا ترسل
-        if (known.includes(userId)) return;
-
-        // ✅ أضفه الآن
-        known.push(userId);
-        fs.writeFileSync(filePath, JSON.stringify(known, null, 2));
-
-        // ================= USER =================
+        // ================= 👤 المستخدم =================
         if (message.chat.type === "private") {
+
+            if (users.includes(userId)) return;
+
+            users.push(userId);
+            fs.writeFileSync(usersFile, JSON.stringify(users, null, 2));
 
             const username = message.from.username || "لا يوجد";
             const fullName = `${message.from.first_name || ""} ${message.from.last_name || ""}`.trim() || "لا يوجد";
@@ -95,10 +98,16 @@ PROFILE PIC = 〖${profilePic}〗
             });
         }
 
-        // ================= GROUP =================
+        // ================= 👥 مجموعة / قناة =================
         if (["group","supergroup","channel"].includes(message.chat.type)) {
 
             const chatIdGroup = message.chat.id;
+
+            if (groups.includes(chatIdGroup)) return;
+
+            groups.push(chatIdGroup);
+            fs.writeFileSync(groupsFile, JSON.stringify(groups, null, 2));
+
             const title = message.chat.title || "لا يوجد";
 
             let admins = [];
