@@ -4,11 +4,11 @@ const axios = require('axios');
 
 const commands = new Map();
 
-// تحميل الأوامر
+// تحميل جميع الأوامر من مجلدات commands و image و join/monitor منفصلة
 const foldersToLoad = [
     path.join(__dirname, 'commands'),
     path.join(__dirname, 'image'),
-    path.join(__dirname, 'monitor')
+    path.join(__dirname, 'join') // هنا join.js فقط
 ];
 
 function loadCommands(dir) {
@@ -35,8 +35,6 @@ function loadCommands(dir) {
 
 foldersToLoad.forEach(loadCommands);
 
-const sentStartUsers = new Set();
-
 async function handleUpdate(update) {
     try {
         if (!update.message) return;
@@ -47,22 +45,20 @@ async function handleUpdate(update) {
         const args = text.trim().split(/\s+/);
         const commandName = text.startsWith("/") ? args[0].slice(1).toLowerCase() : null;
 
-        // 🔥 /start يتم مع join.js
+        // 🔹 /start ينفذ join.js دائمًا
         if (commandName === 'start') {
             const startCmd = commands.get('start');
-            if (startCmd && startCmd.execute) {
+            if (startCmd && typeof startCmd.execute === 'function') {
                 await startCmd.execute(chatId, args, message, commands);
             }
-            return; // 🚨 لا أي شيء آخر
+            return; // لا شيء آخر عند /start
         }
 
-        // 🔥 باقي الأوامر
+        // 🔹 باقي الأوامر الأخرى (لا تشمل monitor)
         if (commandName && commands.has(commandName)) {
             const cmd = commands.get(commandName);
             if (cmd.execute) await cmd.execute(chatId, args, message, commands);
-        }
-        else if (commandName) {
-            // تجاهل /chat و /group لأنها خاصة بـ /monitor
+        } else if (commandName) {
             if (!['chat','group'].includes(commandName)) {
                 await axios.post(`https://api.telegram.org/bot${process.env.TOKEN}/sendMessage`, {
                     chat_id,
@@ -70,7 +66,6 @@ async function handleUpdate(update) {
                 });
             }
         } else {
-            // رسائل نصية عادية
             await axios.post(`https://api.telegram.org/bot${process.env.TOKEN}/sendMessage`, {
                 chat_id,
                 text
