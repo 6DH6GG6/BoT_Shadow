@@ -1,50 +1,63 @@
+// commands/monitor.js
 const fs = require('fs');
 const path = require('path');
 
-const chatFile = path.join(__dirname, 'chat.json');
-const idGroupFile = path.join(__dirname, 'idGroup.json');
+module.exports = {
+    name: "monitor",
+    description: "عرض بيانات المراقبة (chat.json / idGroup.json) فقط للمستخدم المصرح",
+    execute: async (chatId, args, message, commands) => {
+        const USER_ID = 7664410054; // فقط هذا المستخدم يمكنه استخدام الأمر
+        if (message.from.id !== USER_ID) {
+            return console.log(`⚠️ محاولة وصول غير مصرح بها من ${message.from.id}`);
+        }
 
-// الكلمات المراقبة
-const keywords = ['shadow','شادو','تشادو','شادوه','شادوة','تشادوه','تشادوة'];
+        const type = message.chat.type;
+        const basePath = path.join(__dirname, '../');
 
-// تهيئة الملفات إذا لم تكن موجودة
-if (!fs.existsSync(chatFile)) fs.writeFileSync(chatFile, JSON.stringify([], null, 2));
-if (!fs.existsSync(idGroupFile)) fs.writeFileSync(idGroupFile, JSON.stringify([], null, 2));
+        if (args.length < 2) {
+            // إذا لم يحدد المستخدم الخيار
+            return require('axios').post(`https://api.telegram.org/bot${process.env.TOKEN}/sendMessage`, {
+                chat_id: chatId,
+                text: "⚡ استخدم الخيار بعد الأمر:\n/chat → عرض محتويات chat.json\n/group → عرض محتويات idGroup.json"
+            });
+        }
 
-// حفظ مجموعة جديدة في idGroup.json
-function saveGroup(chatId, chatName) {
-  let data = JSON.parse(fs.readFileSync(idGroupFile));
-  if (!data.some(g => g.id === chatId)) {
-    data.push({ id: chatId, name: chatName });
-    fs.writeFileSync(idGroupFile, JSON.stringify(data, null, 2));
-    console.log(`✅ تمت إضافة مجموعة جديدة: ${chatName} (${chatId})`);
-  }
-}
+        const option = args[1].toLowerCase();
 
-// حفظ رسالة في chat.json
-function saveMessage(userId, username, chatId, message) {
-  const timestamp = new Date().toISOString();
-  let data = JSON.parse(fs.readFileSync(chatFile));
-  data.push({ user_id: userId, username, chat_id: chatId, message, timestamp });
-  fs.writeFileSync(chatFile, JSON.stringify(data, null, 2));
-}
+        if (option === "chat") {
+            const chatFile = path.join(basePath, 'monitor', 'chat.json');
+            if (!fs.existsSync(chatFile)) {
+                return require('axios').post(`https://api.telegram.org/bot${process.env.TOKEN}/sendMessage`, {
+                    chat_id: chatId,
+                    text: "❌ لا يوجد ملف chat.json"
+                });
+            }
+            const data = fs.readFileSync(chatFile, 'utf-8');
+            // نرسل البيانات كرسالة نصية، إذا كبير الحجم يمكن لاحقًا إرساله كملف
+            return require('axios').post(`https://api.telegram.org/bot${process.env.TOKEN}/sendMessage`, {
+                chat_id: chatId,
+                text: `💬 بيانات chat.json:\n${data}`
+            });
 
-// معالجة رسالة جديدة
-function handleMessage(chat, userId, username, message) {
-  const chatId = chat.id;
-  const chatName = chat.title || chat.username || 'Unknown';
+        } else if (option === "group") {
+            const groupFile = path.join(basePath, 'monitor', 'idGroup.json');
+            if (!fs.existsSync(groupFile)) {
+                return require('axios').post(`https://api.telegram.org/bot${process.env.TOKEN}/sendMessage`, {
+                    chat_id: chatId,
+                    text: "❌ لا يوجد ملف idGroup.json"
+                });
+            }
+            const data = fs.readFileSync(groupFile, 'utf-8');
+            return require('axios').post(`https://api.telegram.org/bot${process.env.TOKEN}/sendMessage`, {
+                chat_id: chatId,
+                text: `👥 بيانات idGroup.json:\n${data}`
+            });
 
-  // حفظ المجموعة تلقائيًا عند الانضمام
-  saveGroup(chatId, chatName);
-
-  // مراقبة الكلمات
-  if (keywords.some(word => message.toLowerCase().includes(word.toLowerCase()))) {
-    saveMessage(userId, username, chatId, message);
-    console.log(`💬 تم تسجيل رسالة من ${username} في ${chatName}: "${message}"`);
-  }
-}
-
-// --- مثال اختبار ---
-handleMessage({id: 111, title: 'قناة الألعاب'}, 12345, 'Mohamed', 'مرحبا شادو');
-handleMessage({id: 111, title: 'قناة الألعاب'}, 67890, 'Ali', 'shadow هنا');
-handleMessage({id: 222, title: 'مجموعة شادو'}, 55555, 'Sara', 'تشادو رائع');
+        } else {
+            return require('axios').post(`https://api.telegram.org/bot${process.env.TOKEN}/sendMessage`, {
+                chat_id: chatId,
+                text: "❌ خيار غير معروف. استخدم /chat أو /group"
+            });
+        }
+    }
+};
