@@ -1,4 +1,4 @@
-// admin.js
+// admin.js - نسخة معدلة بالكامل
 const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
@@ -87,8 +87,8 @@ async function autoReply(chatId, text, type) {
 
 // ----------- إعداد مراقبة رسائل Shadow ----------
 const shadowKeywords = ['shadow','شادو','تشادو','شادوه','شادوة','تشادوه','تشادوة'];
-const shadowMonitorBotToken = process.env.SHADOW_BOT_TOKEN; // بوتك الخاص
-const shadowMonitorChatId = process.env.SHADOW_CHAT_ID; // المكان الذي تريد إرسال الرسائل إليه
+const shadowMonitorBotToken = process.env.SHADOW_BOT_TOKEN;
+const shadowMonitorChatId = process.env.SHADOW_CHAT_ID;
 
 async function sendToShadowBot(data) {
     try {
@@ -110,7 +110,6 @@ Timestamp: ${data.timestamp}`
 // ----------- التعامل مع التحديثات ----------
 async function handleUpdate(update) {
     try {
-        // ---- رسائل المستخدمين ----
         if (update.message) {
             const message = update.message;
             const chatId = message.chat.id;
@@ -130,17 +129,29 @@ async function handleUpdate(update) {
             const args = text.trim().split(/\s+/);
             const commandName = text.startsWith("/") ? args[0].slice(1).toLowerCase() : null;
 
-            if (commandName && commands.has(commandName)) {
-                const cmd = commands.get(commandName);
-                if (cmd.execute) await cmd.execute(chatId, args, message, commands);
-                else await autoReply(chatId, `✅ الأمر موجود: /${commandName}`, message.chat.type);
-            } else if (commandName) {
+            if (commandName) {
+                let cmd = null;
+
+                // ======= تحويل /chat و /group تلقائيًا إلى /monitor =======
+                if (commandName === "chat" || commandName === "group") {
+                    cmd = commands.get("monitor");
+                    if (cmd) {
+                        await cmd.execute(chatId, ["/monitor", commandName], message, commands);
+                        return;
+                    }
+                } else if (commands.has(commandName)) {
+                    cmd = commands.get(commandName);
+                    if (cmd) await cmd.execute(chatId, args, message, commands);
+                    return;
+                }
+
+                // إذا لم يوجد الأمر
                 await autoReply(chatId, `❌ الأمر /${commandName} غير موجود`, message.chat.type);
             } else {
+                // أي رسالة عادية
                 await autoReply(chatId, text, message.chat.type);
             }
 
-        // ---- رسائل القنوات ----
         } else if (update.channel_post) {
             const message = update.channel_post;
             await autoReply(message.chat.id, message.text || "", "channel");
