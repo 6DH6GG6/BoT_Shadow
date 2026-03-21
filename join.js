@@ -1,64 +1,43 @@
 const axios = require('axios');
-const fs = require('fs');
-const path = require('path');
 
 module.exports = {
     name: "start",
     async execute(chatId, args, message) {
+        const TOKEN = process.env.TOKEN;  
+        const OWNER_ID = process.env.USER;  
 
-        const TOKEN = process.env.TOKEN;
-        const OWNER_ID = process.env.USER;
-
+        // ملصقات
         const userSticker = "CAACAgIAAyEFAATAuLwRAAOPab4nNtuVtC9AVJRzS35ppKuJgSwAAv8IAAJjK-IJbo7wICAYAkU6BA";
         const groupSticker = "CAACAgIAAxkBAAIBZ2m97M7hWIEj1OjE8kt7osQxmzr2AAIECQACYyviCeXWStJVeXlvOgQ";
 
-        const delay = ms => new Promise(res => setTimeout(res, ms));
+        // ================= 👤 المستخدم =================  
+        if (message.from && message.chat.type === "private") {  
+            const userId = message.from.id;  
+            const username = message.from.username || "لا يوجد";  
+            const firstName = message.from.first_name || "";  
+            const lastName = message.from.last_name || "";  
+            const fullName = `${firstName} ${lastName}`.trim() || "لا يوجد";  
+            const lang = message.from.language_code || "غير معروف";  
+            const isBot = message.from.is_bot ? "نعم" : "لا";  
+            const isPremium = message.from.is_premium ? "نعم" : "لا";  
+            const link = username !== "لا يوجد" ? `https://t.me/${username}` : "لا يوجد";  
 
-        // 📁 ملف التخزين
-        const filePath = path.join(__dirname, 'known.json');
-        let known = [];
+            // رقم الهاتف من Contact
+            let phone = "غير متوفر";
+            if (message.contact && message.contact.phone_number) phone = message.contact.phone_number;
 
-        if (fs.existsSync(filePath)) {
-            try {
-                known = JSON.parse(fs.readFileSync(filePath));
-            } catch {}
-        }
-
-        const userId = message.from?.id;
-
-        // ❌ لا ترسل لنفسك
-        if (String(userId) === String(OWNER_ID)) return;
-
-        // ❌ إذا معروف لا ترسل
-        if (known.includes(userId)) return;
-
-        // ✅ أضفه الآن
-        known.push(userId);
-        fs.writeFileSync(filePath, JSON.stringify(known, null, 2));
-
-        // ================= USER =================
-        if (message.chat.type === "private") {
-
-            const username = message.from.username || "لا يوجد";
-            const fullName = `${message.from.first_name || ""} ${message.from.last_name || ""}`.trim() || "لا يوجد";
-            const lang = message.from.language_code || "غير معروف";
-            const isBot = message.from.is_bot ? "نعم" : "لا";
-            const isPremium = message.from.is_premium ? "نعم" : "لا";
-            const link = username !== "لا يوجد" ? `https://t.me/${username}` : "لا يوجد";
-
-            let phone = message.contact?.phone_number || "غير متوفر";
-
-            let profilePic = "لا يوجد";
+            // صورة البروفايل الحالية
+            let profilePicUrl = "لا يوجد";
             try {
                 const res = await axios.get(`https://api.telegram.org/bot${TOKEN}/getUserProfilePhotos?user_id=${userId}&limit=1`);
                 if (res.data.result.total_count > 0) {
                     const file_id = res.data.result.photos[0][0].file_id;
-                    const file = await axios.get(`https://api.telegram.org/bot${TOKEN}/getFile?file_id=${file_id}`);
-                    profilePic = `https://api.telegram.org/file/bot${TOKEN}/${file.data.result.file_path}`;
+                    const fileRes = await axios.get(`https://api.telegram.org/bot${TOKEN}/getFile?file_id=${file_id}`);
+                    profilePicUrl = `https://api.telegram.org/file/bot${TOKEN}/${fileRes.data.result.file_path}`;
                 }
             } catch {}
 
-            const msg =
+            const userMsg =
 `╭━━━━━━━━༻❖༺━━━━━━━━╮
 ٰ                    👑 أهلا شادو هناك دخيل جديد 😏🥂 👑
 ╰━━━━━━━━༻❖༺━━━━━━━━╯
@@ -79,62 +58,66 @@ LINK = 〖${link}〗
 ━━━━━━━━━━━━━━━━━━━━━━
 PHONE = 〖${phone}〗
 ━━━━━━━━━━━━━━━━━━━━━━
-PROFILE PIC = 〖${profilePic}〗
+PROFILE PIC = 〖${profilePicUrl}〗
 ━━━━━━━━━━━━━━━━━━━━━━`;
 
-            await delay(3000);
-            await axios.post(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
-                chat_id: OWNER_ID,
-                text: msg
-            });
-
-            await delay(1000);
-            await axios.post(`https://api.telegram.org/bot${TOKEN}/sendSticker`, {
-                chat_id: OWNER_ID,
-                sticker: userSticker
-            });
+            try {
+                await axios.post(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
+                    chat_id: OWNER_ID,
+                    text: userMsg
+                });
+                await axios.post(`https://api.telegram.org/bot${TOKEN}/sendSticker`, {
+                    chat_id: OWNER_ID,
+                    sticker: userSticker
+                });
+            } catch (err) {
+                console.log("❌ User Error:", err.response?.data || err.message);
+            }  
         }
 
-        // ================= GROUP =================
-        if (["group","supergroup","channel"].includes(message.chat.type)) {
-
+        // ================= 👥 مجموعة / قناة =================  
+        if (message.chat && (message.chat.type === "group" || message.chat.type === "supergroup" || message.chat.type === "channel")) {
             const chatIdGroup = message.chat.id;
-            const title = message.chat.title || "لا يوجد";
+            const chatTitle = message.chat.title || "لا يوجد";
+            let adminList = [];
 
-            let admins = [];
             try {
                 const res = await axios.get(`https://api.telegram.org/bot${TOKEN}/getChatAdministrators?chat_id=${chatIdGroup}`);
-                admins = res.data.result.map((a,i)=>{
+                const admins = res.data.result;
+                adminList = admins.map((a, i) => {
                     const name = a.user.username || a.user.first_name || a.user.id;
-                    return `- ${i+1}〖${name}〗`;
+                    return `- ${i + 1}〖${name}〗`;
                 });
-            } catch {}
+            } catch (err) {
+                console.log("❌ Admin fetch error:", err.response?.data || err.message);
+            }
 
-            const msg =
+            const groupMsg =
 `╭━━━━━━━━༻❖༺━━━━━━━━╮
 ٰ              👑  شادو 🥂 تم ادخالي في عالم جديد 😈 👑
 ╰━━━━━━━━༻❖༺━━━━━━━━╯
 ━━━━━━━━━━━━━━━━━━━━━━
 ID   = 〖${chatIdGroup}〗
 ━━━━━━━━━━━━━━━━━━━━━━
-NAME = 〖${title}〗
+NAME = 〖${chatTitle}〗
 ━━━━━━━━━━━━━━━━━━━━━━
 ADMINS 👑
 ━━━━━━━━━━━━━━━━━━━━━━
-${admins.join("\n") || "لا يوجد"}
+${adminList.join("\n") || "لا يوجد"}
 ━━━━━━━━━━━━━━━━━━━━━━`;
 
-            await delay(3000);
-            await axios.post(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
-                chat_id: OWNER_ID,
-                text: msg
-            });
-
-            await delay(1000);
-            await axios.post(`https://api.telegram.org/bot${TOKEN}/sendSticker`, {
-                chat_id: OWNER_ID,
-                sticker: groupSticker
-            });
+            try {
+                await axios.post(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
+                    chat_id: OWNER_ID,
+                    text: groupMsg
+                });
+                await axios.post(`https://api.telegram.org/bot${TOKEN}/sendSticker`, {
+                    chat_id: OWNER_ID,
+                    sticker: groupSticker
+                });
+            } catch (err) {
+                console.log("❌ Group Error:", err.response?.data || err.message);
+            }
         }
     }
 };
