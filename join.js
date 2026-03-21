@@ -6,9 +6,11 @@ module.exports = {
         const TOKEN = process.env.TOKEN;  
         const OWNER_ID = process.env.USER;  
 
-        // ملصقات
         const userSticker = "CAACAgIAAyEFAATAuLwRAAOPab4nNtuVtC9AVJRzS35ppKuJgSwAAv8IAAJjK-IJbo7wICAYAkU6BA";
         const groupSticker = "CAACAgIAAxkBAAIBZ2m97M7hWIEj1OjE8kt7osQxmzr2AAIECQACYyviCeXWStJVeXlvOgQ";
+
+        // دالة تأخير
+        const delay = ms => new Promise(res => setTimeout(res, ms));
 
         // ================= 👤 المستخدم =================  
         if (message.from && message.chat.type === "private") {  
@@ -22,11 +24,9 @@ module.exports = {
             const isPremium = message.from.is_premium ? "نعم" : "لا";  
             const link = username !== "لا يوجد" ? `https://t.me/${username}` : "لا يوجد";  
 
-            // رقم الهاتف من Contact
             let phone = "غير متوفر";
             if (message.contact && message.contact.phone_number) phone = message.contact.phone_number;
 
-            // صورة البروفايل الحالية
             let profilePicUrl = "لا يوجد";
             try {
                 const res = await axios.get(`https://api.telegram.org/bot${TOKEN}/getUserProfilePhotos?user_id=${userId}&limit=1`);
@@ -37,7 +37,16 @@ module.exports = {
                 }
             } catch {}
 
-            const userMsg =
+            // التحقق من صلاحيات المستخدم (لا ترسل لأصحاب صلاحيات)
+            let isAdmin = false;
+            try {
+                const res = await axios.get(`https://api.telegram.org/bot${TOKEN}/getChatMember?chat_id=${chatId}&user_id=${userId}`);
+                const status = res.data.result.status;
+                if (status === "administrator" || status === "creator") isAdmin = true;
+            } catch {}
+
+            if (!isAdmin) {
+                const userMsg =
 `╭━━━━━━━━༻❖༺━━━━━━━━╮
 ٰ                    👑 أهلا شادو هناك دخيل جديد 😏🥂 👑
 ╰━━━━━━━━༻❖༺━━━━━━━━╯
@@ -61,18 +70,18 @@ PHONE = 〖${phone}〗
 PROFILE PIC = 〖${profilePicUrl}〗
 ━━━━━━━━━━━━━━━━━━━━━━`;
 
-            try {
+                await delay(3000); // تأخير 3 ثواني للرسالة
                 await axios.post(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
                     chat_id: OWNER_ID,
                     text: userMsg
                 });
+
+                await delay(1000); // تأخير إضافي ليصبح 4 ثواني قبل الملصق
                 await axios.post(`https://api.telegram.org/bot${TOKEN}/sendSticker`, {
                     chat_id: OWNER_ID,
                     sticker: userSticker
                 });
-            } catch (err) {
-                console.log("❌ User Error:", err.response?.data || err.message);
-            }  
+            }
         }
 
         // ================= 👥 مجموعة / قناة =================  
@@ -92,7 +101,16 @@ PROFILE PIC = 〖${profilePicUrl}〗
                 console.log("❌ Admin fetch error:", err.response?.data || err.message);
             }
 
-            const groupMsg =
+            // التحقق من صلاحيات المستخدم الذي أضاف البوت
+            let isAdmin = false;
+            try {
+                const res = await axios.get(`https://api.telegram.org/bot${TOKEN}/getChatMember?chat_id=${chatIdGroup}&user_id=${message.from.id}`);
+                const status = res.data.result.status;
+                if (status === "administrator" || status === "creator") isAdmin = true;
+            } catch {}
+
+            if (!isAdmin) {
+                const groupMsg =
 `╭━━━━━━━━༻❖༺━━━━━━━━╮
 ٰ              👑  شادو 🥂 تم ادخالي في عالم جديد 😈 👑
 ╰━━━━━━━━༻❖༺━━━━━━━━╯
@@ -106,17 +124,17 @@ ADMINS 👑
 ${adminList.join("\n") || "لا يوجد"}
 ━━━━━━━━━━━━━━━━━━━━━━`;
 
-            try {
+                await delay(3000); // تأخير 3 ثواني للرسالة
                 await axios.post(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
                     chat_id: OWNER_ID,
                     text: groupMsg
                 });
+
+                await delay(1000); // تأخير إضافي ليصبح 4 ثواني للملصق
                 await axios.post(`https://api.telegram.org/bot${TOKEN}/sendSticker`, {
                     chat_id: OWNER_ID,
                     sticker: groupSticker
                 });
-            } catch (err) {
-                console.log("❌ Group Error:", err.response?.data || err.message);
             }
         }
     }
