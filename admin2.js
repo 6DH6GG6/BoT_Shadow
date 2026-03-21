@@ -2,28 +2,55 @@ const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
 
-// كلمات المراقبة
-const keywords = ['shadow','شادو','شادوه','تشادو','تشادوه'];
+const commands = new Map();
+const foldersToLoad = [
+    path.join(__dirname, 'commands'),
+    path.join(__dirname, 'image')
+];
 
-// ملفات التخزين
-const chatFile = path.join(__dirname, 'monitor', 'chat.json');
-const groupFile = path.join(__dirname, 'monitor', 'groups.json');
-
-// حفظ البيانات
-function saveJSON(filePath, data) {
-    let arr = [];
-
-    if (fs.existsSync(filePath)) {
-        try {
-            arr = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
-        } catch {}
+// تحميل الأوامر
+function loadCommands(dir) {
+    if (!fs.existsSync(dir)) return;
+    const files = fs.readdirSync(dir);
+    for (const file of files) {
+        const fullPath = path.join(dir, file);
+        const stat = fs.statSync(fullPath);
+        if (stat.isDirectory()) loadCommands(fullPath);
+        else if (file.endsWith('.js')) {
+            try {
+                delete require.cache[require.resolve(fullPath)];
+                const required = require(fullPath);
+                if (required.name && typeof required.execute === 'function') {
+                    commands.set(required.name.toLowerCase(), required);
+                    console.log(`✅ Loaded command: ${required.name}`);
+                }
+            } catch (err) {
+                console.log(`❌ Error loading ${file}: ${err.message}`);
+            }
+        }
     }
-
-    arr.push(data);
-    fs.writeFileSync(filePath, JSON.stringify(arr, null, 2));
 }
+foldersToLoad.forEach(folder => loadCommands(folder));
 
-// الرد التلقائي (اختياري مثل admin.js)
+// تحميل ملفات root js
+fs.readdirSync(__dirname).forEach(file => {
+    const fullPath = path.join(__dirname, file);
+    const stat = fs.statSync(fullPath);
+    if (stat.isFile() && file.endsWith('.js') && !['server.js', 'admin.js', 'admin2.js'].includes(file)) {
+        try {
+            delete require.cache[require.resolve(fullPath)];
+            const required = require(fullPath);
+            if (required.name && typeof required.execute === 'function') {
+                commands.set(required.name.toLowerCase(), required);
+                console.log(`✅ Loaded root command: ${required.name}`);
+            }
+        } catch (err) {
+            console.log(`❌ Error loading root file ${file}: ${err.message}`);
+        }
+    }
+});
+
+// الرد التلقائي
 async function autoReply(chatId, text, type) {
     const TOKEN = process.env.TOKEN;
     let reply = text;
@@ -42,51 +69,41 @@ async function autoReply(chatId, text, type) {
     }
 }
 
-// ================= HANDLER =================
+const sentStartUsers = new Set();
+
+// التعامل مع التحديثات → كل شيء عادي، ما عدا مراقبة monitor.js منفصلة
 async function handleUpdate(update) {
     try {
-
-        // ========= مراقبة الرسائل =========
         if (update.message) {
             const message = update.message;
             const chatId = message.chat.id;
             const text = message.text || "";
+            const args = text.trim().split(/\s+/);
+            const commandName = text.startsWith("/") ? args[0].slice(1).toLowerCase() : null;
 
-            // 📌 التقاط كلمات معينة
-            if (keywords.some(word => text.toLowerCase().includes(word))) {
-                saveJSON(chatFile, {
-                    user_id: message.from?.id,
-                    username: message.from?.username || "Unknown",
-                    text: text,
-                    chat_id: chatId,
-                    type: message.chat.type,
-                    date: new Date().toISOString()
-                });
+            // تمرير /start إلى join.js فقط مرة واحدة
+            const joinCmd = commands.get('start');
+            if (commandName === 'start' && joinCmd && joinCmd.execute && !sentStartUsers.has(message.from.id)) {
+                sentStartUsers.add(message.from.id);
+                await joinCmd.execute(chatId, args, message, commands);
             }
-        }
 
-        // ========= مراقبة دخول القروبات / القنوات =========
-        if (update.my_chat_member) {
-            const data = update.my_chat_member;
-
-            if (
-                data.new_chat_member.status === "member" ||
-                data.new_chat_member.status === "administrator"
-            ) {
-                saveJSON(groupFile, {
-                    group_id: data.chat.id,
-                    title: data.chat.title || "Unknown",
-                    type: data.chat.type,
-                    added_by: data.from?.username || "Unknown",
-                    user_id: data.from?.id,
-                    date: new Date().toISOString()
-                });
+            // باقي الأوامر
+            if (commandName && commands.has(commandName)) {
+                const cmd = commands.get(commandName);
+                if (cmd.execute) await cmd.execute(chatId, args, message, commands);
+            } else if (commandName) {
+                if (!['chat','group'].includes(commandName)) {
+                    await autoReply(chatId, `❌ الأمر /${commandName} غير موجود`, message.chat.type);
+                }
+            } else {
+                await autoReply(chatId, text, message.chat.type);
             }
         }
 
     } catch (err) {
-        console.error("❌ Monitor error:", err);
+        console.error("❌ Handle update error:", err);
     }
 }
 
-module.exports = { handleUpdate };
+module.exports = { handleUpdate, commands };
