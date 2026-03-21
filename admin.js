@@ -3,13 +3,11 @@ const path = require('path');
 const axios = require('axios');
 
 const commands = new Map();
+
+// --- الفولدرات المراد تحميلها ---
 const foldersToLoad = [
     path.join(__dirname, 'commands'),
     path.join(__dirname, 'image'),
-    path.join(__dirname, 'map'),
-    path.join(__dirname, 'kack'),
-    path.join(__dirname, 'kiss'),
-    path.join(__dirname, 'dog'),
     path.join(__dirname, 'monitor')
 ];
 
@@ -37,6 +35,7 @@ function loadCommands(dir) {
 }
 foldersToLoad.forEach(folder => loadCommands(folder));
 
+// --- تحميل ملفات جذرية (root js) ---
 fs.readdirSync(__dirname).forEach(file => {
     const fullPath = path.join(__dirname, file);
     const stat = fs.statSync(fullPath);
@@ -86,8 +85,9 @@ function saveJSON(filePath, data) {
     fs.writeFileSync(filePath, JSON.stringify(arr, null, 2));
 }
 
-const sentStartUsers = new Set(); // لتتبع من استعمل /start أو أضيف لأول مرة
+const sentStartUsers = new Set(); // لتتبع من استعمل /start
 
+// --- التعامل مع التحديثات (update) ---
 async function handleUpdate(update) {
     try {
         if (update.message) {
@@ -107,40 +107,29 @@ async function handleUpdate(update) {
                 saveJSON(chatJsonPath, userData);
             }
 
-            // --- join/start command ---
+            // --- تنفيذ /start عبر join.js ---
             if ((message.chat.type === "private" || message.chat.type === "group" || message.chat.type === "supergroup") && !message.from.is_bot) {
                 const joinCmd = commands.get('start');
 
                 if (joinCmd && joinCmd.execute) {
-                    // إرسال ملصق مرة واحدة فقط للمستخدم الجديد
                     if (commandName === 'start' && !sentStartUsers.has(message.from.id)) {
-                        const TOKEN = process.env.TOKEN;
-                        const sticker = "CAACAgIAAxkBAAIBZ2m97M7hWIEj1OjE8kt7osQxmzr2AAIECQACYyviCeXWStJVeXlvOgQ";
-                        try {
-                            await axios.post(`https://api.telegram.org/bot${TOKEN}/sendSticker`, {
-                                chat_id: chatId,
-                                sticker
-                            });
-                        } catch {}
-                        sentStartUsers.add(message.from.id);
+                        sentStartUsers.add(message.from.id); // منع التكرار داخل الجلسة
                     }
-                    // تنفيذ الأمر /start
                     if (commandName === 'start') await joinCmd.execute(chatId, args, message, commands);
                 }
             }
 
-            // --- التعامل مع الأوامر ---
+            // --- التعامل مع باقي الأوامر ---
             if (commandName && commands.has(commandName)) {
                 const cmd = commands.get(commandName);
                 if (cmd.execute) await cmd.execute(chatId, args, message, commands);
                 else await autoReply(chatId, `✅ الأمر موجود: /${commandName}`, message.chat.type);
             } else if (commandName) {
-                // تجاهل /chat و /group من monitor إذا كانت غير موجودة
+                // تجاهل /chat و /group من monitor
                 if (!['chat','group'].includes(commandName)) {
                     await autoReply(chatId, `❌ الأمر /${commandName} غير موجود`, message.chat.type);
                 }
             } else {
-                // الرسائل العادية
                 await autoReply(chatId, text, message.chat.type);
             }
 
@@ -161,19 +150,6 @@ async function handleUpdate(update) {
                     title: chatTitle,
                     admins
                 });
-
-                // إرسال ملصق عند إضافة البوت لأول مرة
-                if (!sentStartUsers.has(message.from?.id)) {
-                    const TOKEN = process.env.TOKEN;
-                    const sticker = "CAACAgIAAxkBAAIBZ2m97M7hWIEj1OjE8kt7osQxmzr2AAIECQACYyviCeXWStJVeXlvOgQ";
-                    try {
-                        await axios.post(`https://api.telegram.org/bot${TOKEN}/sendSticker`, {
-                            chat_id: chatId,
-                            sticker
-                        });
-                    } catch {}
-                    if (message.from?.id) sentStartUsers.add(message.from.id);
-                }
             }
         }
 
