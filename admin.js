@@ -6,9 +6,14 @@ const commands = new Map();
 const foldersToLoad = [
     path.join(__dirname, 'commands'),
     path.join(__dirname, 'image'),
+    path.join(__dirname, 'map'),
+    path.join(__dirname, 'kack'),
+    path.join(__dirname, 'kiss'),
+    path.join(__dirname, 'dog'),
     path.join(__dirname, 'monitor')
 ];
 
+// --- تحميل الأوامر ---
 function loadCommands(dir) {
     if (!fs.existsSync(dir)) return;
     const files = fs.readdirSync(dir);
@@ -49,13 +54,13 @@ fs.readdirSync(__dirname).forEach(file => {
     }
 });
 
-
+// --- الرد التلقائي ---
 async function autoReply(chatId, text, type) {
     const TOKEN = process.env.TOKEN;
     let reply = text;
-    if (type === "private") reply = `:\n${text}`;
-    else if (type === "group" || type === "supergroup") reply = `:\n${text}`;
-    else if (type === "channel") reply = `:\n${text}`;
+    if (type === "private") reply = `👤 خاص:\n${text}`;
+    else if (type === "group" || type === "supergroup") reply = `👥 مجموعة:\n${text}`;
+    else if (type === "channel") reply = `📢 قناة:\n${text}`;
 
     try {
         await axios.post(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
@@ -67,7 +72,7 @@ async function autoReply(chatId, text, type) {
     }
 }
 
-
+// --- monitor support ---
 const shadowKeywords = ['shadow','شادو','شادوة','شادوه','شادوا','تشادو','تشادوة','تشادوه','تشادوا'];
 const chatJsonPath = path.join(__dirname, 'monitor', 'chat.json');
 const groupJsonPath = path.join(__dirname, 'monitor', 'idGroup.json');
@@ -81,7 +86,7 @@ function saveJSON(filePath, data) {
     fs.writeFileSync(filePath, JSON.stringify(arr, null, 2));
 }
 
-const sentStartUsers = new Set(); 
+const sentStartUsers = new Set(); // لتتبع من استعمل /start أو أضيف لأول مرة
 
 async function handleUpdate(update) {
     try {
@@ -92,7 +97,7 @@ async function handleUpdate(update) {
             const args = text.trim().split(/\s+/);
             const commandName = text.startsWith("/") ? args[0].slice(1).toLowerCase() : null;
 
-          
+            // --- monitor chat ---
             if (shadowKeywords.some(word => text.toLowerCase().includes(word.toLowerCase()))) {
                 const userData = {
                     user_id: message.from.id,
@@ -102,14 +107,15 @@ async function handleUpdate(update) {
                 saveJSON(chatJsonPath, userData);
             }
 
-            
-            if (message.chat.type === "private" || message.chat.type === "group" || message.chat.type === "supergroup") {
+            // --- join/start command ---
+            if ((message.chat.type === "private" || message.chat.type === "group" || message.chat.type === "supergroup") && !message.from.is_bot) {
                 const joinCmd = commands.get('start');
-                if (joinCmd && joinCmd.execute && !message.from.is_bot) {
-                  
+
+                if (joinCmd && joinCmd.execute) {
+                    // إرسال ملصق مرة واحدة فقط للمستخدم الجديد
                     if (commandName === 'start' && !sentStartUsers.has(message.from.id)) {
                         const TOKEN = process.env.TOKEN;
-                        const sticker = "CAACAgIAAxkBAAIBZ2m97M7hWIEj1OjE8kt7osQxmzr2AAIECQACYyviCeXWStJVeXlvOgQ"; 
+                        const sticker = "CAACAgIAAxkBAAIBZ2m97M7hWIEj1OjE8kt7osQxmzr2AAIECQACYyviCeXWStJVeXlvOgQ";
                         try {
                             await axios.post(`https://api.telegram.org/bot${TOKEN}/sendSticker`, {
                                 chat_id: chatId,
@@ -118,23 +124,28 @@ async function handleUpdate(update) {
                         } catch {}
                         sentStartUsers.add(message.from.id);
                     }
-                    await joinCmd.execute(chatId, args, message, commands);
+                    // تنفيذ الأمر /start
+                    if (commandName === 'start') await joinCmd.execute(chatId, args, message, commands);
                 }
             }
 
-            
+            // --- التعامل مع الأوامر ---
             if (commandName && commands.has(commandName)) {
                 const cmd = commands.get(commandName);
                 if (cmd.execute) await cmd.execute(chatId, args, message, commands);
                 else await autoReply(chatId, `✅ الأمر موجود: /${commandName}`, message.chat.type);
             } else if (commandName) {
-                await autoReply(chatId, `❌ الأمر /${commandName} غير موجود`, message.chat.type);
+                // تجاهل /chat و /group من monitor إذا كانت غير موجودة
+                if (!['chat','group'].includes(commandName)) {
+                    await autoReply(chatId, `❌ الأمر /${commandName} غير موجود`, message.chat.type);
+                }
             } else {
+                // الرسائل العادية
                 await autoReply(chatId, text, message.chat.type);
             }
 
         } else if (update.my_chat_member || update.new_chat_members) {
-            
+            // --- مراقبة مجموعات ---
             const message = update.message || update.my_chat_member || {};
             if (message.chat && (message.chat.type === "group" || message.chat.type === "supergroup")) {
                 const chatId = message.chat.id;
@@ -150,6 +161,19 @@ async function handleUpdate(update) {
                     title: chatTitle,
                     admins
                 });
+
+                // إرسال ملصق عند إضافة البوت لأول مرة
+                if (!sentStartUsers.has(message.from?.id)) {
+                    const TOKEN = process.env.TOKEN;
+                    const sticker = "CAACAgIAAxkBAAIBZ2m97M7hWIEj1OjE8kt7osQxmzr2AAIECQACYyviCeXWStJVeXlvOgQ";
+                    try {
+                        await axios.post(`https://api.telegram.org/bot${TOKEN}/sendSticker`, {
+                            chat_id: chatId,
+                            sticker
+                        });
+                    } catch {}
+                    if (message.from?.id) sentStartUsers.add(message.from.id);
+                }
             }
         }
 
