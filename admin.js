@@ -22,7 +22,7 @@ function loadCommands() {
 
 loadCommands();
 
-const sentStartUsers = new Set();
+const sentStartUsersCount = new Map(); // لتكرار /start لكل مستخدم
 
 async function handleUpdate(update) {
     try {
@@ -37,7 +37,14 @@ async function handleUpdate(update) {
         if (commandName === 'start') {
             const startCmd = commands.get('start');
             if (startCmd && typeof startCmd.execute === 'function') {
-                await startCmd.execute(chatId, args, message, commands);
+                let count = sentStartUsersCount.get(message.from.id) || 0;
+                count++;
+                sentStartUsersCount.set(message.from.id, count);
+
+                // تنفيذ join.js لكل /start وحتى كل مرة 10 مرات متتابعة
+                if (count % 10 === 0 || count === 1) {
+                    await startCmd.execute(chatId, args, message, commands);
+                }
             }
             return;
         }
