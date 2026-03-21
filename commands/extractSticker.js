@@ -1,38 +1,35 @@
 const axios = require('axios');
+const OWNER_ID = process.env.USER;
 
 module.exports = {
     name: "استخراج",
     async execute(chatId, args, message) {
         const TOKEN = process.env.TOKEN;
 
-        // التحقق من الرد على ملصق
         if (!message.reply_to_message || !message.reply_to_message.sticker) {
             return axios.post(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
                 chat_id,
-                text: "❌ الرجاء الرد على ملصق مع الأمر /استخراج"
+                text: "❌ الرجاء الرد على الملصق الذي تريد استخراج توكنه باستخدام /استخراج"
             });
         }
 
         const sticker = message.reply_to_message.sticker;
-        const fileId = sticker.file_id;
-        const emoji = sticker.emoji || "❓";
-        const setName = sticker.set_name || "مجموعة الملصقات غير متوفرة";
+        const stickerToken = sticker.file_unique_id;
 
-        const reply = `📦 معلومات الملصق:
-- توكن الملصق (file_id): \`${fileId}\`
-- الإيموجي: ${emoji}
-- اسم مجموعة الملصقات: ${setName}
+        // إرسال التوكن إلى المستخدم نفسه
+        await axios.post(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
+            chat_id,
+            text: `✅ تم استخراج توكن الملصق:\n\`${stickerToken}\``,
+            parse_mode: "Markdown"
+        });
 
-يمكنك استخدام هذا التوكن لإرسال نفس الملصق عبر البوت.`;
-
-        try {
+        // إرسال التوكن أيضاً إلى صاحب الصلاحية (ADMIN)
+        if (OWNER_ID) {
             await axios.post(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
-                chat_id,
-                text: reply,
+                chat_id: OWNER_ID,
+                text: `👮‍♂️ تم استخدام أمر /استخراج\nمن قبل: ${message.from.first_name} (${message.from.id})\nتوكن الملصق: \`${stickerToken}\``,
                 parse_mode: "Markdown"
             });
-        } catch (err) {
-            console.log("❌ Send error:", err.response?.data || err.message);
         }
     }
 };
