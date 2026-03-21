@@ -3,25 +3,32 @@ const path = require('path');
 const axios = require('axios');
 
 const commands = new Map();
+
+// 🔥 تحميل فقط من folders (بدون root → يمنع التكرار)
 const foldersToLoad = [
     path.join(__dirname, 'commands'),
     path.join(__dirname, 'image')
 ];
 
+// تحميل الأوامر
 function loadCommands(dir) {
     if (!fs.existsSync(dir)) return;
+
     const files = fs.readdirSync(dir);
     for (const file of files) {
         const fullPath = path.join(dir, file);
         const stat = fs.statSync(fullPath);
-        if (stat.isDirectory()) loadCommands(fullPath);
-        else if (file.endsWith('.js')) {
+
+        if (stat.isDirectory()) {
+            loadCommands(fullPath);
+        } else if (file.endsWith('.js')) {
             try {
                 delete require.cache[require.resolve(fullPath)];
-                const required = require(fullPath);
-                if (required.name && typeof required.execute === 'function') {
-                    commands.set(required.name.toLowerCase(), required);
-                    console.log(`✅ Loaded command: ${required.name}`);
+                const cmd = require(fullPath);
+
+                if (cmd.name && typeof cmd.execute === 'function') {
+                    commands.set(cmd.name.toLowerCase(), cmd);
+                    console.log(`✅ Loaded command: ${cmd.name}`);
                 }
             } catch (err) {
                 console.log(`❌ Error loading ${file}: ${err.message}`);
@@ -29,31 +36,14 @@ function loadCommands(dir) {
         }
     }
 }
-foldersToLoad.forEach(folder => loadCommands(folder));
 
-// تحميل ملفات root js
-fs.readdirSync(__dirname).forEach(file => {
-    const fullPath = path.join(__dirname, file);
-    const stat = fs.statSync(fullPath);
-    if (stat.isFile() && file.endsWith('.js') && !['server.js', 'admin.js'].includes(file)) {
-        try {
-            delete require.cache[require.resolve(fullPath)];
-            const required = require(fullPath);
-            if (required.name && typeof required.execute === 'function') {
-                commands.set(required.name.toLowerCase(), required);
-                console.log(`✅ Loaded root command: ${required.name}`);
-            }
-        } catch (err) {
-            console.log(`❌ Error loading root file ${file}: ${err.message}`);
-        }
-    }
-});
+foldersToLoad.forEach(loadCommands);
 
 // الرد التلقائي
 async function autoReply(chatId, text, type) {
     const TOKEN = process.env.TOKEN;
-    let reply = text;
 
+    let reply = text;
     if (type === "private") reply = `👤 خاص:\n${text}`;
     else if (type === "group" || type === "supergroup") reply = `👥 مجموعة:\n${text}`;
     else if (type === "channel") reply = `📢 قناة:\n${text}`;
@@ -68,6 +58,7 @@ async function autoReply(chatId, text, type) {
     }
 }
 
+// منع تكرار /start
 const sentStartUsers = new Set();
 
 // التعامل مع التحديثات
@@ -79,29 +70,40 @@ async function handleUpdate(update) {
         const chatId = message.chat.id;
         const text = message.text || "";
         const args = text.trim().split(/\s+/);
-        const commandName = text.startsWith("/") ? args[0].slice(1).toLowerCase() : null;
+        const commandName = text.startsWith("/") 
+            ? args[0].slice(1).toLowerCase() 
+            : null;
 
-        // 🔥 إصلاح التكرار هنا
-        const joinCmd = commands.get('start');
-        if (
-            commandName === 'start' &&
-            joinCmd &&
-            joinCmd.execute &&
-            !sentStartUsers.has(message.from.id)
-        ) {
-            sentStartUsers.add(message.from.id);
-            await joinCmd.execute(chatId, args, message, commands);
-            return; // 🚨 يمنع تنفيذ الأمر مرة ثانية
+        // 🔥 منع تكرار start
+        if (commandName === 'start') {
+            const joinCmd = commands.get('start');
+
+            if (
+                joinCmd &&
+                joinCmd.execute &&
+                !sentStartUsers.has(message.from.id)
+            ) {
+                sentStartUsers.add(message.from.id);
+                await joinCmd.execute(chatId, args, message, commands);
+            }
+
+            return; // 🚨 يمنع أي تنفيذ إضافي
         }
 
         // باقي الأوامر
         if (commandName && commands.has(commandName)) {
             const cmd = commands.get(commandName);
-            if (cmd.execute) await cmd.execute(chatId, args, message, commands);
+            if (cmd.execute) {
+                await cmd.execute(chatId, args, message, commands);
+            }
         } 
         else if (commandName) {
             if (!['chat','group'].includes(commandName)) {
-                await autoReply(chatId, `❌ الأمر /${commandName} غير موجود`, message.chat.type);
+                await autoReply(
+                    chatId,
+                    `❌ الأمر /${commandName} غير موجود`,
+                    message.chat.type
+                );
             }
         } 
         else {
