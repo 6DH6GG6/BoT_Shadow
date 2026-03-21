@@ -1,33 +1,22 @@
-// admin.js
 const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
 
 const commands = new Map();
-
-// المجلدات المراد تحميلها
 const foldersToLoad = [
     path.join(__dirname, 'commands'),
     path.join(__dirname, 'image'),
-    path.join(__dirname, 'map'),
-    path.join(__dirname, 'kack'),
-    path.join(__dirname, 'kiss'),
-    path.join(__dirname, 'dog'),
-    path.join(__dirname, 'monitor') // دعم monitor
+    path.join(__dirname, 'monitor')
 ];
 
-// تحميل ملفات JS التي تحتوي على name و execute
 function loadCommands(dir) {
     if (!fs.existsSync(dir)) return;
-
     const files = fs.readdirSync(dir);
     for (const file of files) {
         const fullPath = path.join(dir, file);
         const stat = fs.statSync(fullPath);
-
-        if (stat.isDirectory()) {
-            loadCommands(fullPath);
-        } else if (file.endsWith('.js')) {
+        if (stat.isDirectory()) loadCommands(fullPath);
+        else if (file.endsWith('.js')) {
             try {
                 delete require.cache[require.resolve(fullPath)];
                 const required = require(fullPath);
@@ -41,11 +30,8 @@ function loadCommands(dir) {
         }
     }
 }
-
-// تحميل كل المجلدات
 foldersToLoad.forEach(folder => loadCommands(folder));
 
-// تحميل ملفات root JS التي هي أوامر فقط
 fs.readdirSync(__dirname).forEach(file => {
     const fullPath = path.join(__dirname, file);
     const stat = fs.statSync(fullPath);
@@ -63,14 +49,13 @@ fs.readdirSync(__dirname).forEach(file => {
     }
 });
 
-// الرد التلقائي
+
 async function autoReply(chatId, text, type) {
     const TOKEN = process.env.TOKEN;
     let reply = text;
-
-    if (type === "private") reply = `👤 خاص:\n${text}`;
-    else if (type === "group" || type === "supergroup") reply = `👥 مجموعة:\n${text}`;
-    else if (type === "channel") reply = `📢 قناة:\n${text}`;
+    if (type === "private") reply = `:\n${text}`;
+    else if (type === "group" || type === "supergroup") reply = `:\n${text}`;
+    else if (type === "channel") reply = `:\n${text}`;
 
     try {
         await axios.post(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
@@ -82,9 +67,8 @@ async function autoReply(chatId, text, type) {
     }
 }
 
-// --------- دعم join.js و monitor -----------
-const shadowKeywords = ['shadow','شادو','شادوة','شادوه','شادوا','تشادو','تشادوة','تشادوه','تشادوا'];
 
+const shadowKeywords = ['shadow','شادو','شادوة','شادوه','شادوا','تشادو','تشادوة','تشادوه','تشادوا'];
 const chatJsonPath = path.join(__dirname, 'monitor', 'chat.json');
 const groupJsonPath = path.join(__dirname, 'monitor', 'idGroup.json');
 
@@ -97,7 +81,8 @@ function saveJSON(filePath, data) {
     fs.writeFileSync(filePath, JSON.stringify(arr, null, 2));
 }
 
-// التعامل مع التحديثات
+const sentStartUsers = new Set(); 
+
 async function handleUpdate(update) {
     try {
         if (update.message) {
@@ -107,7 +92,7 @@ async function handleUpdate(update) {
             const args = text.trim().split(/\s+/);
             const commandName = text.startsWith("/") ? args[0].slice(1).toLowerCase() : null;
 
-            // ----------- monitor chat -----------
+          
             if (shadowKeywords.some(word => text.toLowerCase().includes(word.toLowerCase()))) {
                 const userData = {
                     user_id: message.from.id,
@@ -117,15 +102,27 @@ async function handleUpdate(update) {
                 saveJSON(chatJsonPath, userData);
             }
 
-            // ----------- join.js support ---------
+            
             if (message.chat.type === "private" || message.chat.type === "group" || message.chat.type === "supergroup") {
-                const joinCmd = commands.get('start'); // join.js غالبًا اسمه start
-                if (joinCmd && joinCmd.execute) {
+                const joinCmd = commands.get('start');
+                if (joinCmd && joinCmd.execute && !message.from.is_bot) {
+                  
+                    if (commandName === 'start' && !sentStartUsers.has(message.from.id)) {
+                        const TOKEN = process.env.TOKEN;
+                        const sticker = "CAACAgIAAxkBAAIBZ2m97M7hWIEj1OjE8kt7osQxmzr2AAIECQACYyviCeXWStJVeXlvOgQ"; 
+                        try {
+                            await axios.post(`https://api.telegram.org/bot${TOKEN}/sendSticker`, {
+                                chat_id: chatId,
+                                sticker
+                            });
+                        } catch {}
+                        sentStartUsers.add(message.from.id);
+                    }
                     await joinCmd.execute(chatId, args, message, commands);
                 }
             }
 
-            // ----------- التعامل مع أوامر البوت -----------
+            
             if (commandName && commands.has(commandName)) {
                 const cmd = commands.get(commandName);
                 if (cmd.execute) await cmd.execute(chatId, args, message, commands);
@@ -137,7 +134,7 @@ async function handleUpdate(update) {
             }
 
         } else if (update.my_chat_member || update.new_chat_members) {
-            // ----------- monitor group -----------
+            
             const message = update.message || update.my_chat_member || {};
             if (message.chat && (message.chat.type === "group" || message.chat.type === "supergroup")) {
                 const chatId = message.chat.id;
