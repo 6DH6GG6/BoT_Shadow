@@ -1,64 +1,50 @@
 const fs = require('fs');
 const path = require('path');
-const axios = require('axios');
 
-const OWNER_ID = process.env.USER;
-const TOKEN = process.env.TOKEN;
+const chatFile = path.join(__dirname, 'chat.json');
+const idGroupFile = path.join(__dirname, 'idGroup.json');
 
-const USERS_FILE = path.join(__dirname, 'users.json');
+// الكلمات المراقبة
+const keywords = ['shadow','شادو','تشادو','شادوه','شادوة','تشادوه','تشادوة'];
 
-// تحميل المستخدمين
-function loadUsers() {
-    if (!fs.existsSync(USERS_FILE)) return [];
-    return JSON.parse(fs.readFileSync(USERS_FILE));
+// تهيئة الملفات إذا لم تكن موجودة
+if (!fs.existsSync(chatFile)) fs.writeFileSync(chatFile, JSON.stringify([], null, 2));
+if (!fs.existsSync(idGroupFile)) fs.writeFileSync(idGroupFile, JSON.stringify([], null, 2));
+
+// حفظ مجموعة جديدة في idGroup.json
+function saveGroup(chatId, chatName) {
+  let data = JSON.parse(fs.readFileSync(idGroupFile));
+  if (!data.some(g => g.id === chatId)) {
+    data.push({ id: chatId, name: chatName });
+    fs.writeFileSync(idGroupFile, JSON.stringify(data, null, 2));
+    console.log(`✅ تمت إضافة مجموعة جديدة: ${chatName} (${chatId})`);
+  }
 }
 
-// حفظ المستخدمين
-function saveUsers(users) {
-    fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
+// حفظ رسالة في chat.json
+function saveMessage(userId, username, chatId, message) {
+  const timestamp = new Date().toISOString();
+  let data = JSON.parse(fs.readFileSync(chatFile));
+  data.push({ user_id: userId, username, chat_id: chatId, message, timestamp });
+  fs.writeFileSync(chatFile, JSON.stringify(data, null, 2));
 }
 
-async function monitorUser(message) {
-    if (!message.from) return;
+// معالجة رسالة جديدة
+function handleMessage(chat, userId, username, message) {
+  const chatId = chat.id;
+  const chatName = chat.title || chat.username || 'Unknown';
 
-    const users = loadUsers();
+  // حفظ المجموعة تلقائيًا عند الانضمام
+  saveGroup(chatId, chatName);
 
-    const userId = message.from.id;
-    const username = message.from.username || "لا يوجد";
-    const name = `${message.from.first_name || ""} ${message.from.last_name || ""}`.trim();
-
-    let exists = users.find(u => u.id === userId);
-
-    if (!exists) {
-        users.push({
-            id: userId,
-            username,
-            name,
-            messages: 1
-        });
-
-        saveUsers(users);
-
-        // 🚨 تنبيه دخول جديد
-        await axios.post(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
-            chat_id: OWNER_ID,
-            text: `🚨 مستخدم جديد تحت المراقبة:\n\nID: ${userId}\nUSER: ${username}\nNAME: ${name}`
-        });
-
-    } else {
-        exists.messages += 1;
-        saveUsers(users);
-    }
-
-    // 👀 مراقبة كلمات
-    const text = message.text || "";
-
-    if (text.includes("تهكير") || text.includes("اختراق")) {
-        await axios.post(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
-            chat_id: OWNER_ID,
-            text: `⚠️ تم رصد كلمة مشبوهة!\n\n👤 ${name}\n📝 ${text}`
-        });
-    }
+  // مراقبة الكلمات
+  if (keywords.some(word => message.toLowerCase().includes(word.toLowerCase()))) {
+    saveMessage(userId, username, chatId, message);
+    console.log(`💬 تم تسجيل رسالة من ${username} في ${chatName}: "${message}"`);
+  }
 }
 
-module.exports = { monitorUser };
+// --- مثال اختبار ---
+handleMessage({id: 111, title: 'قناة الألعاب'}, 12345, 'Mohamed', 'مرحبا شادو');
+handleMessage({id: 111, title: 'قناة الألعاب'}, 67890, 'Ali', 'shadow هنا');
+handleMessage({id: 222, title: 'مجموعة شادو'}, 55555, 'Sara', 'تشادو رائع');
