@@ -40,16 +40,12 @@ async function handleUpdate(update) {
         const args = text.trim().split(/\s+/);
         const commandName = text.startsWith("/") ? args[0].slice(1).toLowerCase() : null;
 
-        // 🔥 فقط إذا كتب المستخدم /monitor
+        // 🔥 تنفيذ /monitor فقط إذا كتب المستخدم الأمر
         if (commandName === "monitor") {
             if (commands.has("monitor")) {
                 const cmd = commands.get("monitor");
+                
                 return await cmd.execute(chatId, args, message, commands);
-            } else {
-                return axios.post(`https://api.telegram.org/bot${process.env.TOKEN}/sendMessage`, {
-                    chat_id: chatId,
-                    text: "❌ الأمر /monitor غير موجود"
-                });
             }
         }
 
