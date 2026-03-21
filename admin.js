@@ -14,12 +14,11 @@ const foldersToLoad = [
     path.join(__dirname, 'dog')
 ];
 
-// تحميل ملفات أوامر JS فقط (يجب أن تحتوي على name و execute)
+// تحميل ملفات JS التي تحتوي على name و execute
 function loadCommands(dir) {
     if (!fs.existsSync(dir)) return;
 
     const files = fs.readdirSync(dir);
-
     for (const file of files) {
         const fullPath = path.join(dir, file);
         const stat = fs.statSync(fullPath);
@@ -30,14 +29,12 @@ function loadCommands(dir) {
             try {
                 delete require.cache[require.resolve(fullPath)];
                 const required = require(fullPath);
-
                 if (required.name && typeof required.execute === 'function') {
                     commands.set(required.name.toLowerCase(), required);
                     console.log(`✅ Loaded command: ${required.name}`);
                 } else {
                     console.log(`⚠️ Ignored non-command file: ${file}`);
                 }
-
             } catch (err) {
                 console.log(`❌ Error loading ${file}: ${err.message}`);
             }
@@ -52,12 +49,10 @@ foldersToLoad.forEach(folder => loadCommands(folder));
 fs.readdirSync(__dirname).forEach(file => {
     const fullPath = path.join(__dirname, file);
     const stat = fs.statSync(fullPath);
-
     if (stat.isFile() && file.endsWith('.js') && !['server.js', 'admin.js'].includes(file)) {
         try {
             delete require.cache[require.resolve(fullPath)];
             const required = require(fullPath);
-
             if (required.name && typeof required.execute === 'function') {
                 commands.set(required.name.toLowerCase(), required);
                 console.log(`✅ Loaded root command: ${required.name}`);
