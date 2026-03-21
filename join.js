@@ -3,15 +3,11 @@ const axios = require('axios');
 module.exports = {
     name: "start",
     async execute(chatId, args, message) {
-
         const TOKEN = process.env.TOKEN;
         const OWNER_ID = process.env.USER;
 
-        const sticker = "CAACAgIAAxkBAAIBZ2m97M7hWIEj1OjE8kt7osQxmzr2AAIECQACYyviCeXWStJVeXlvOgQ";
-
         // ================= 👤 المستخدم =================
         if (message.from && message.chat.type === "private") {
-
             const userId = message.from.id;
             const username = message.from.username || "لا يوجد";
             const firstName = message.from.first_name || "";
@@ -28,11 +24,8 @@ module.exports = {
 
             const userMsg =
 `╭━━━━━━━━༻❖༺━━━━━━━━╮
-
 ٰ                    👑 أهلا شادو هناك دخيل جديد 😏🥂 👑
-
 ╰━━━━━━━━༻❖༺━━━━━━━━╯
-
 ━━━━━━━━━━━━━━━━━━━━━━
 ID   = 〖${userId}〗 
 ━━━━━━━━━━━━━━━━━━━━━━
@@ -54,12 +47,6 @@ LINK = 〖${link}〗
                     chat_id: OWNER_ID,
                     text: userMsg
                 });
-
-                await axios.post(`https://api.telegram.org/bot${TOKEN}/sendSticker`, {
-                    chat_id: OWNER_ID,
-                    sticker: sticker
-                });
-
             } catch (err) {
                 console.log("❌ User Error:", err.response?.data || err.message);
             }
@@ -67,7 +54,6 @@ LINK = 〖${link}〗
 
         // ================= 👥 مجموعة / قناة =================
         if (message.chat && (message.chat.type === "group" || message.chat.type === "supergroup" || message.chat.type === "channel")) {
-
             const chatIdGroup = message.chat.id;
             const chatTitle = message.chat.title || "لا يوجد";
 
@@ -88,11 +74,8 @@ LINK = 〖${link}〗
 
             const groupMsg =
 `╭━━━━━━━━༻❖༺━━━━━━━━╮
-
 ٰ              👑 تم دخول البوت إلى عالم جديد 😈🔥 👑
-
 ╰━━━━━━━━༻❖༺━━━━━━━━╯
-
 ━━━━━━━━━━━━━━━━━━━━━━
 ID   = 〖${chatIdGroup}〗
 ━━━━━━━━━━━━━━━━━━━━━━
@@ -108,12 +91,6 @@ ${adminList.join("\n") || "لا يوجد"}
                     chat_id: OWNER_ID,
                     text: groupMsg
                 });
-
-                await axios.post(`https://api.telegram.org/bot${TOKEN}/sendSticker`, {
-                    chat_id: OWNER_ID,
-                    sticker: sticker
-                });
-
             } catch (err) {
                 console.log("❌ Group Error:", err.response?.data || err.message);
             }
