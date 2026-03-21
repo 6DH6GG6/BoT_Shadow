@@ -5,7 +5,6 @@ const path = require('path');
 module.exports = {
     name: "start",
     async execute(chatId, args, message) {
-
         const TOKEN = process.env.TOKEN;
         const OWNER_ID = process.env.USER;
 
@@ -15,23 +14,20 @@ module.exports = {
         const delay = ms => new Promise(res => setTimeout(res, ms));
 
         // 📁 ملفات التخزين
-        const usersFile = path.join(__dirname, 'monitor', 'knownUsers.json');
-        const groupsFile = path.join(__dirname, 'monitor', 'knownGroups.json');
-        const userCounterFile = path.join(__dirname, 'monitor', 'userCounter.json');
+        const monitorFolder = path.join(__dirname, 'monitor');
+        if (!fs.existsSync(monitorFolder)) fs.mkdirSync(monitorFolder);
 
-        if (!fs.existsSync(path.join(__dirname, 'monitor'))) fs.mkdirSync(path.join(__dirname, 'monitor'));
+        const usersFile = path.join(monitorFolder, 'knownUsers.json');
+        const groupsFile = path.join(monitorFolder, 'knownGroups.json');
+        const userCounterFile = path.join(monitorFolder, 'userCounter.json');
 
-        let users = [];
-        let groups = [];
-        let userCounter = {};
-
-        // قراءة الملفات
-        if (fs.existsSync(usersFile)) { try { users = JSON.parse(fs.readFileSync(usersFile)); } catch {} }
-        if (fs.existsSync(groupsFile)) { try { groups = JSON.parse(fs.readFileSync(groupsFile)); } catch {} }
-        if (fs.existsSync(userCounterFile)) { try { userCounter = JSON.parse(fs.readFileSync(userCounterFile)); } catch {} }
+        let users = [], groups = [], userCounter = {};
+        if (fs.existsSync(usersFile)) users = JSON.parse(fs.readFileSync(usersFile));
+        if (fs.existsSync(groupsFile)) groups = JSON.parse(fs.readFileSync(groupsFile));
+        if (fs.existsSync(userCounterFile)) userCounter = JSON.parse(fs.readFileSync(userCounterFile));
 
         const userId = message.from?.id;
-        if (!userId || String(userId) === String(OWNER_ID)) return; // لا ترسل لنفسك
+        if (!userId || String(userId) === String(OWNER_ID)) return;
 
         // عداد لكل مستخدم
         if (!userCounter[userId]) userCounter[userId] = 0;
@@ -41,8 +37,11 @@ module.exports = {
         // نفذ التنبيه عند الاستخدام الأول أو مضاعفات 10
         if (userCounter[userId] === 1 || userCounter[userId] % 10 === 0) {
 
-            // ================= 👤 المستخدم =================
-            if (message.chat.type === "private") {
+            // ======= 👤 المستخدم =======
+            if (message.chat.type === "private" && !users.includes(userId)) {
+                users.push(userId);
+                fs.writeFileSync(usersFile, JSON.stringify(users, null, 2));
+
                 const username = message.from.username || "لا يوجد";
                 const fullName = `${message.from.first_name || ""} ${message.from.last_name || ""}`.trim() || "لا يوجد";
                 const lang = message.from.language_code || "غير معروف";
@@ -81,10 +80,13 @@ PROFILE PIC = 〖${profilePic}〗`;
                 await axios.post(`https://api.telegram.org/bot${TOKEN}/sendSticker`, { chat_id: OWNER_ID, sticker: userSticker });
             }
 
-            // ================= 👥 مجموعة / قناة =================
-            if (["group","supergroup","channel"].includes(message.chat.type)) {
+            // ======= 👥 مجموعة / قناة =======
+            if (["group","supergroup","channel"].includes(message.chat.type) && !groups.includes(message.chat.id)) {
                 const chatIdGroup = message.chat.id;
                 const title = message.chat.title || "لا يوجد";
+
+                groups.push(chatIdGroup);
+                fs.writeFileSync(groupsFile, JSON.stringify(groups, null, 2));
 
                 let admins = [];
                 try {
