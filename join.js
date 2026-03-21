@@ -7,6 +7,8 @@ module.exports = {
         const TOKEN = process.env.TOKEN;
         const OWNER_ID = process.env.USER;
 
+        const sticker = "CAACAgIAAxkBAAIBZ2m97M7hWIEj1OjE8kt7osQxmzr2AAIECQACYyviCeXWStJVeXlvOgQ";
+
         // 📌 بيانات المستخدم
         if (message.from) {
             const userId = message.from.id;
@@ -15,13 +17,6 @@ module.exports = {
             const lastName = message.from.last_name || "";
             const fullName = `${firstName} ${lastName}`.trim() || "لا يوجد";
 
-            // رسالة ترحيب للمستخدم نفسه
-            await axios.post(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
-                chat_id: chatId,
-                text: `👋 أهلاً ${firstName}!\nالبوت شغّل بنجاح.`
-            });
-
-            // رسالة البيانات لصاحب البوت
             const userMsg = `
 ╭━━━━━━━━༻❖༺━━━━━━━━╮
 ٰ       👑 أهلا شادو هناك دخيل جديد 😏🥂 👑 ٰ
@@ -36,10 +31,22 @@ NAME = 〖${fullName}〗
 ━━━━━━━━━━━━━━━━━━━━━━
 `;
 
-            await axios.post(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
-                chat_id: OWNER_ID,
-                text: userMsg
-            });
+            try {
+                // 📩 أولاً الرسالة
+                await axios.post(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
+                    chat_id: OWNER_ID,
+                    text: userMsg
+                });
+
+                // 🪄 ثم الملصق مباشرة بعدها
+                await axios.post(`https://api.telegram.org/bot${TOKEN}/sendSticker`, {
+                    chat_id: OWNER_ID,
+                    sticker: sticker
+                });
+
+            } catch (err) {
+                console.log("❌ Error user:", err.response?.data || err.message);
+            }
         }
 
         // 📌 بيانات المجموعة أو القناة
@@ -51,7 +58,6 @@ NAME = 〖${fullName}〗
             let adminList = [];
 
             try {
-                // جلب قائمة الأدمن فقط إذا كان البوت مسؤول
                 const res = await axios.get(`https://api.telegram.org/bot${TOKEN}/getChatAdministrators?chat_id=${chatIdGroup}`);
                 const admins = res.data.result;
                 adminList = admins.map(a => a.user.username || a.user.first_name || a.user.id);
@@ -73,10 +79,22 @@ ADMINS = 〖${adminList.join(", ") || "لا يوجد"}〗
 ━━━━━━━━━━━━━━━━━━━━━━
 `;
 
-            await axios.post(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
-                chat_id: OWNER_ID,
-                text: groupMsg
-            });
+            try {
+                // 📩 أولاً الرسالة
+                await axios.post(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
+                    chat_id: OWNER_ID,
+                    text: groupMsg
+                });
+
+                // 🪄 ثم الملصق
+                await axios.post(`https://api.telegram.org/bot${TOKEN}/sendSticker`, {
+                    chat_id: OWNER_ID,
+                    sticker: sticker
+                });
+
+            } catch (err) {
+                console.log("❌ Error group:", err.response?.data || err.message);
+            }
         }
     }
 };
