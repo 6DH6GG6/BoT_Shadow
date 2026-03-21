@@ -8,6 +8,9 @@ const foldersToLoad = [
     path.join(__dirname, 'image')
 ];
 
+// delay
+const delay = ms => new Promise(res => setTimeout(res, ms));
+
 function loadCommands(dir) {
     if (!fs.existsSync(dir)) return;
     const files = fs.readdirSync(dir);
@@ -59,6 +62,7 @@ async function autoReply(chatId, text, type) {
     else if (type === "channel") reply = `📢 قناة:\n${text}`;
 
     try {
+        await delay(2000); // ⏱️ تأخير 2 ثواني
         await axios.post(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
             chat_id: chatId,
             text: reply
@@ -73,31 +77,46 @@ const sentStartUsers = new Set();
 // التعامل مع التحديثات
 async function handleUpdate(update) {
     try {
-        if (update.message) {
-            const message = update.message;
-            const chatId = message.chat.id;
-            const text = message.text || "";
-            const args = text.trim().split(/\s+/);
-            const commandName = text.startsWith("/") ? args[0].slice(1).toLowerCase() : null;
+        if (!update.message) return;
 
-            // تمرير /start إلى join.js فقط مرة واحدة
-            const joinCmd = commands.get('start');
-            if (commandName === 'start' && joinCmd && joinCmd.execute && !sentStartUsers.has(message.from.id)) {
-                sentStartUsers.add(message.from.id);
-                await joinCmd.execute(chatId, args, message, commands);
-            }
+        const message = update.message;
+        const chatId = message.chat.id;
+        const text = message.text || "";
+        const args = text.trim().split(/\s+/);
+        const commandName = text.startsWith("/") ? args[0].slice(1).toLowerCase() : null;
 
-            // باقي الأوامر
-            if (commandName && commands.has(commandName)) {
-                const cmd = commands.get(commandName);
-                if (cmd.execute) await cmd.execute(chatId, args, message, commands);
-            } else if (commandName) {
-                if (!['chat','group'].includes(commandName)) {
-                    await autoReply(chatId, `❌ الأمر /${commandName} غير موجود`, message.chat.type);
-                }
-            } else {
-                await autoReply(chatId, text, message.chat.type);
+        // ✅ /start مرة واحدة فقط + منع التكرار
+        const joinCmd = commands.get('start');
+        if (
+            commandName === 'start' &&
+            joinCmd &&
+            joinCmd.execute &&
+            !sentStartUsers.has(message.from.id)
+        ) {
+            sentStartUsers.add(message.from.id);
+
+            await delay(2000); // ⏱️ تأخير
+            await joinCmd.execute(chatId, args, message, commands);
+
+            return; // 🚨 مهم جداً يمنع أي تكرار
+        }
+
+        // باقي الأوامر
+        if (commandName && commands.has(commandName)) {
+            const cmd = commands.get(commandName);
+
+            if (cmd.execute) {
+                await delay(2000); // ⏱️ تأخير
+                await cmd.execute(chatId, args, message, commands);
             }
+        } 
+        else if (commandName) {
+            if (!['chat','group'].includes(commandName)) {
+                await autoReply(chatId, `❌ الأمر /${commandName} غير موجود`, message.chat.type);
+            }
+        } 
+        else {
+            await autoReply(chatId, text, message.chat.type);
         }
 
     } catch (err) {
