@@ -22,10 +22,10 @@ const colors = {
     white: "\x1b[37m"
 };
 
-console.log(`${colors.magenta}╭━━━━━༻❖༺━━━━━╮`);
-console.log(`ٰ               👑 SHADOW OG 👑`);
-console.log(`${colors.magenta}╰━━━━━༻❖༺━━━━━╯`);
-console.log(`${colors.cyan}( 👑 جاري البدء ايها زعيم 👑 )${colors.reset}`);
+console.log(`${colors.red}╭━━━━━༻❖༺━━━━━╮`);
+console.log(`${colors.magenta}               👑 SHADOW OG 👑`);
+console.log(`${colors.red}╰━━━━━༻❖༺━━━━━╯`);
+console.log(`${colors.magenta}( 👑 جاري البدء ايها زعيم 👑 )${colors.reset}`);
 
 app.post(`/webhook/${TOKEN}`, async (req, res) => {
     try {
