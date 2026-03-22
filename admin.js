@@ -1,74 +1,54 @@
 const axios = require('axios');
-const king = require('./king');
+const { king } = require('./king');
 
 const commands = new Map();
 
-function loadCommands() {
-    const files = king.getFilesWithContent();
-    for (const file of files) {
-        if (file.ext === '.js') {
-            try {
-                const cmd = king.requireFile(file.path);
-                if (cmd.name && typeof cmd.execute === 'function') {
-                    commands.set(cmd.name.toLowerCase(), cmd);
-                    console.log(`✅ Loaded command: ${cmd.name}`);
-                }
-            } catch (err) {
-                console.log(`❌ Error loading ${file.name}: ${err.message}`);
+for (const file of king.getFilesRecursive(__dirname)) {
+    if (file.endsWith('.js')) {
+        try {
+            delete require.cache[require.resolve(file)];
+            const cmd = require(file);
+            if (cmd.name && typeof cmd.execute === 'function') {
+                commands.set(cmd.name.toLowerCase(), cmd);
+                console.log(`✅ Loaded command: ${cmd.name}`);
             }
+        } catch (err) {
+            console.log(`❌ Error loading ${file}: ${err.message}`);
         }
     }
 }
 
-loadCommands();
-
-const sentStartUsersCount = new Map(); // لتكرار /start لكل مستخدم
-
 async function handleUpdate(update) {
     try {
         if (!update.message) return;
-
         const message = update.message;
         const chatId = message.chat.id;
         const text = message.text || "";
         const args = text.trim().split(/\s+/);
         const commandName = text.startsWith("/") ? args[0].slice(1).toLowerCase() : null;
 
-        if (commandName === 'start') {
-            const startCmd = commands.get('start');
-            if (startCmd && typeof startCmd.execute === 'function') {
-                let count = sentStartUsersCount.get(message.from.id) || 0;
-                count++;
-                sentStartUsersCount.set(message.from.id, count);
-
-                // تنفيذ join.js لكل /start وحتى كل مرة 10 مرات متتابعة
-                if (count % 10 === 0 || count === 1) {
-                    await startCmd.execute(chatId, args, message, commands);
-                }
-            }
-            return;
+        if (commandName === 'start' && commands.has('start')) {
+            const cmd = commands.get('start');
+            return await cmd.execute(chatId, args, message, commands);
         }
 
         if (commandName && commands.has(commandName)) {
             const cmd = commands.get(commandName);
-            if (cmd.execute) await cmd.execute(chatId, args, message, commands);
+            return await cmd.execute(chatId, args, message, commands);
         } else if (commandName) {
-            if (!['chat','group','monitor'].includes(commandName)) {
-                await axios.post(`https://api.telegram.org/bot${process.env.TOKEN}/sendMessage`, {
-                    chat_id,
-                    text: `❌ الأمر /${commandName} غير موجود`
-                });
-            }
+            await axios.post(`https://api.telegram.org/bot${process.env.TOKEN}/sendMessage`, {
+                chat_id,
+                text: `❌ الأمر /${commandName} غير موجود`
+            });
         } else {
             await axios.post(`https://api.telegram.org/bot${process.env.TOKEN}/sendMessage`, {
                 chat_id,
                 text
             });
         }
-
     } catch (err) {
         console.error("❌ Handle update error:", err);
     }
 }
 
-module.exports = { handleUpdate, commands, loadCommands };
+module.exports = { handleUpdate, commands };
