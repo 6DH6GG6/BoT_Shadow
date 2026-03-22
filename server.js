@@ -21,23 +21,24 @@ app.post(`/webhook/${TOKEN}`, async (req, res) => {
         for (const [name, adminModule] of admins) {
             if (adminModule && typeof adminModule.handleUpdate === 'function') {
                 await adminModule.handleUpdate(update);
-                console.log(`✅ Handled update with module: ${name}`);
+                console.log(`✅ ${name} handled update`);
             }
         }
 
         res.sendStatus(200);
     } catch (err) {
-        console.error(`( ايها زعيم 👑 نواجه مشكلة في تشغيل سرفر عليك بإصلاحها 👀🥂 )`);
+        console.error(`( ايها زعيم 👑 نواجه مشكلة 👀🥂 )`);
+        console.error(err.message);
         res.sendStatus(500);
     }
 });
 
 app.get('/', (req, res) => {
     res.send("🤖 Bot is running...");
-    console.log(`( السرفر ناجح وسا يبدء الدمار هاهاه 😈🔥 )`);
+    console.log(`( السرفر ناجح 😈🔥 )`);
 });
 
 app.listen(PORT, () => {
-    console.log(`( تاريخ طائفة الظلام كسبت مني بوتًا صلبًا لا يمكن قهره ☢️🔥 )`);
-    console.log(`✅ Server running on port ${PORT}`);
+    console.log(`( تم تشغيل السرفر ☢️🔥 )`);
+    console.log(`✅ PORT ${PORT}`);
 });
