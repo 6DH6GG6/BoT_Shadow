@@ -1,38 +1,27 @@
-const fs = require('fs');
-const path = require('path');
-
 const admins = new Map();
 
-// مجلد ملفات الأدمن
-const adminFilesPath = path.join(__dirname, '../'); // أعلى من KING/
-
-// تحميل جميع ملفات الأدمن (.js)
-function loadAdmins(dir) {
-    if (!fs.existsSync(dir)) return;
-
-    const files = fs.readdirSync(dir);
-    for (const file of files) {
-        const fullPath = path.join(dir, file);
-        const stat = fs.statSync(fullPath);
-
-        if (stat.isDirectory()) {
-            loadAdmins(fullPath);
-        } else if (file.endsWith('.js')) {
-            try {
-                delete require.cache[require.resolve(fullPath)];
-                const mod = require(fullPath);
-                if (mod.handleUpdate) {
-                    const name = file.replace('.js', '');
-                    admins.set(name, mod);
-                    console.log(`✅ Loaded admin: ${name}`);
-                }
-            } catch (err) {
-                console.log(`❌ Error loading ${file}: ${err.message}`);
-            }
+function loadAdmins() {
+    try {
+        const admin = require('../admin');
+        if (admin.handleUpdate) {
+            admins.set('admin', admin);
+            console.log('✅ Loaded admin.js');
         }
+    } catch (err) {
+        console.log('❌ admin.js:', err.message);
+    }
+
+    try {
+        const admin2 = require('../admin2');
+        if (admin2.handleUpdate) {
+            admins.set('admin2', admin2);
+            console.log('✅ Loaded admin2.js');
+        }
+    } catch (err) {
+        console.log('❌ admin2.js:', err.message);
     }
 }
 
-loadAdmins(adminFilesPath);
+loadAdmins();
 
 module.exports = { admins };
