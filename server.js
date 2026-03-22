@@ -1,8 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const bodyParser = require('body-parser');
-const { king } = require('./king');
-const admin = require('./admin');
+const { king, admins } = require('./شبح_الظلام');
 
 const app = express();
 app.use(bodyParser.json());
@@ -10,21 +9,25 @@ app.use(bodyParser.json());
 const PORT = process.env.PORT || 3000;
 const TOKEN = process.env.TOKEN;
 
-console.log(`
-╭━━━━━༻❖༺━━━━━╮
-ٰ       👑 SHADOW OG 👑
-╰━━━━━༻❖༺━━━━━╯
-( 👑 جاري البدء ايها زعيم 👑 )
-`);
+console.log(`╭━━━━━༻❖༺━━━━━╮`);
+console.log(`               👑 SHADOW OG 👑`);
+console.log(`╰━━━━━༻❖༺━━━━━╯`);
+console.log(`( 👑 جاري البدء ايها زعيم 👑 )`);
 
 app.post(`/webhook/${TOKEN}`, async (req, res) => {
     try {
         const update = req.body;
-        await admin.handleUpdate(update);
+
+        for (const [name, adminModule] of admins) {
+            if (adminModule && typeof adminModule.handleUpdate === 'function') {
+                await adminModule.handleUpdate(update);
+                console.log(`✅ Handled update with module: ${name}`);
+            }
+        }
+
         res.sendStatus(200);
-        console.log(`✅ تم معالجة التحديث`);
     } catch (err) {
-        console.log(`( ايها زعيم 👑 نواجه مشكلة في تشغيل سرفر 👀🥂 )`);
+        console.error(`( ايها زعيم 👑 نواجه مشكلة في تشغيل سرفر عليك بإصلاحها 👀🥂 )`);
         res.sendStatus(500);
     }
 });
