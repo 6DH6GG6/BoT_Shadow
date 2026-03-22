@@ -1,19 +1,20 @@
 const monitor = require('./monitor');
-const commands = new Map();
-commands.set(monitor.name, monitor);
 
 async function handleUpdate(update) {
-    if (!update.message) return;
+    try {
+        if (!update.message) return;
 
-    const message = update.message;
-    const chatId = message.chat.id;
-    const text = message.text || "";
-    const args = text.trim().split(/\s+/);
-    const commandName = text.startsWith("/") ? args[0].slice(1).toLowerCase() : null;
+        const message = update.message;
+        const text = message.text || "";
 
-    if (commandName === 'monitor') {
-        await monitor.execute(chatId, args, message, commands);
+        // دعم /monitor و /monitor@bot
+        if (text.startsWith('/monitor')) {
+            await monitor.execute(message.chat.id, text.split(/\s+/), message);
+        }
+
+    } catch (err) {
+        console.log("❌ admin2.js:", err.message);
     }
 }
 
-module.exports = { handleUpdate, commands };
+module.exports = { handleUpdate };
