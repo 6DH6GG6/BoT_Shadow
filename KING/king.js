@@ -1,31 +1,38 @@
+const fs = require('fs');
 const path = require('path');
-const King = require('./king');
 
-const king = new King();
 const admins = new Map();
 
-const adminFolders = [
-    path.join(__dirname, 'admin'),
-    path.join(__dirname, 'admin2')
-];
+// مجلد ملفات الأدمن
+const adminFilesPath = path.join(__dirname, '../'); // أعلى من KING/
 
-for (const folder of adminFolders) {
-    const files = king.getFilesWithContent(folder);
+// تحميل جميع ملفات الأدمن (.js)
+function loadAdmins(dir) {
+    if (!fs.existsSync(dir)) return;
+
+    const files = fs.readdirSync(dir);
     for (const file of files) {
-        if (file.path.endsWith('.js')) {
+        const fullPath = path.join(dir, file);
+        const stat = fs.statSync(fullPath);
+
+        if (stat.isDirectory()) {
+            loadAdmins(fullPath);
+        } else if (file.endsWith('.js')) {
             try {
-                delete require.cache[require.resolve(file.path)];
-                const required = require(file.path);
-                if (required.handleUpdate) {
-                    const name = required.name || require('path').basename(file.path, '.js');
-                    admins.set(name, required);
-                    console.log(`✅ Loaded admin module: ${name}`);
+                delete require.cache[require.resolve(fullPath)];
+                const mod = require(fullPath);
+                if (mod.handleUpdate) {
+                    const name = file.replace('.js', '');
+                    admins.set(name, mod);
+                    console.log(`✅ Loaded admin: ${name}`);
                 }
             } catch (err) {
-                console.log(`❌ Error loading admin file ${file.path}: ${err.message}`);
+                console.log(`❌ Error loading ${file}: ${err.message}`);
             }
         }
     }
 }
 
-module.exports = { king, admins };
+loadAdmins(adminFilesPath);
+
+module.exports = { admins };
