@@ -3,37 +3,40 @@ const path = require('path');
 
 class King {
     constructor(folders = []) {
-        this.folders = folders;
+        this.folders = folders.length ? folders : [
+            path.join(__dirname, 'commands'),
+            path.join(__dirname, 'image'),
+            path.join(__dirname, 'join'),
+            path.join(__dirname, 'monitor'),
+            path.join(__dirname, 'utils'),
+            path.join(__dirname, 'shadow_monitor')
+        ];
     }
 
-    addFolder(folderPath) {
-        if (!this.folders.includes(folderPath)) this.folders.push(folderPath);
-    }
+    getFilesWithContent(dir = null) {
+        const result = [];
+        const foldersToRead = dir ? [dir] : this.folders;
 
-    getFilesWithContent() {
-        let results = [];
-        for (const folder of this.folders) {
-            this._readFolderRecursive(folder, results);
-        }
-        return results;
-    }
+        for (const folder of foldersToRead) {
+            if (!fs.existsSync(folder)) continue;
 
-    _readFolderRecursive(folder, results) {
-        if (!fs.existsSync(folder)) return;
-        const files = fs.readdirSync(folder);
-        for (const file of files) {
-            const fullPath = path.join(folder, file);
-            const stat = fs.statSync(fullPath);
-            if (stat.isDirectory()) this._readFolderRecursive(fullPath, results);
-            else if (file.endsWith('.js') || file.endsWith('.json')) {
-                results.push({ path: fullPath, name: file, ext: path.extname(file) });
+            const files = fs.readdirSync(folder);
+            for (const file of files) {
+                const fullPath = path.join(folder, file);
+                const stat = fs.statSync(fullPath);
+
+                if (stat.isDirectory()) {
+                    result.push(...this.getFilesWithContent(fullPath));
+                } else if (file.endsWith('.js') || file.endsWith('.json')) {
+                    result.push({
+                        path: fullPath,
+                        name: file,
+                        content: fs.readFileSync(fullPath, 'utf-8')
+                    });
+                }
             }
         }
-    }
-
-    requireFile(filePath) {
-        delete require.cache[require.resolve(filePath)];
-        return require(filePath);
+        return result;
     }
 }
 
