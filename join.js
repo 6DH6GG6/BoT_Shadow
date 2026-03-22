@@ -4,7 +4,7 @@ const path = require('path');
 
 module.exports = {
     name: "start",
-    async execute(chatId, args, message) {
+    async execute(chatId, args, message, commands) {
         const TOKEN = process.env.TOKEN;
         const OWNER_ID = process.env.USER;
 
