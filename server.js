@@ -23,8 +23,8 @@ const colors = {
 };
 
 console.log(`${colors.magenta}╭━━━━━༻❖༺━━━━━╮`);
-console.log(`ٰ       👑 SHADOW OG 👑`);
-console.log(`╰━━━━━༻❖༺━━━━━╯${colors.reset}`);
+console.log(`ٰ               👑 SHADOW OG 👑`);
+console.log(`${colors.magenta}╰━━━━━༻❖༺━━━━━╯`);
 console.log(`${colors.cyan}( 👑 جاري البدء ايها زعيم 👑 )${colors.reset}`);
 
 app.post(`/webhook/${TOKEN}`, async (req, res) => {
