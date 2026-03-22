@@ -22,10 +22,16 @@ const colors = {
     white: "\x1b[37m"
 };
 
-console.log(`${colors.red}╭━━━━━༻❖༺━━━━━╮`);
-console.log(`${colors.magenta}               👑 SHADOW OG 👑`);
-console.log(`${colors.red}╰━━━━━༻❖༺━━━━━╯`);
-console.log(`${colors.magenta}( 👑 جاري البدء ايها زعيم 👑 )${colors.reset}`);
+const separator = `${colors.cyan}/////////////////////////////////////${colors.reset}`;
+
+console.log(`${colors.red}╭━━━━━༻❖༺━━━━━╮${colors.reset}`);
+console.log(`${colors.magenta}               👑 SHADOW OG 👑${colors.reset}`);
+console.log(`${colors.red}╰━━━━━༻❖༺━━━━━╯${colors.reset}`);
+console.log(separator);
+console.log(`${colors.cyan}( 👑 جاري البدء ايها زعيم 👑 )${colors.reset}`);
+console.log(separator);
+console.log(`${colors.bright}${colors.green}( تاريخ طائفة الظلام كسبت مني بوتًا صلبًا لا يمكن قهره ☢️🔥 )${colors.reset}`);
+console.log(separator);
 
 app.post(`/webhook/${TOKEN}`, async (req, res) => {
     try {
@@ -48,10 +54,13 @@ app.post(`/webhook/${TOKEN}`, async (req, res) => {
 
 app.get('/', (req, res) => {
     res.send("🤖 Bot is running...");
+    console.log(separator);
     console.log(`${colors.yellow}( السرفر ناجح وسا يبدء الدمار هاهاه 😈🔥 )${colors.reset}`);
+    console.log(separator);
 });
 
 app.listen(PORT, () => {
-    console.log(`${colors.bright}${colors.green}( تاريخ طائفة الظلام كسبت مني بوتًا صلبًا لا يمكن قهره ☢️🔥 )${colors.reset}`);
+    console.log(separator);
     console.log(`${colors.green}✅ Server running on port ${PORT}${colors.reset}`);
+    console.log(separator);
 });
