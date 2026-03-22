@@ -30,7 +30,7 @@ console.log(`${colors.red}╰━━━━━༻❖༺━━━━━╯${colors.
 console.log(separator);
 console.log(`${colors.cyan}( 👑 جاري البدء ايها زعيم 👑 )${colors.reset}`);
 console.log(separator);
-console.log(`${colors.bright}${colors.green}( تاريخ طائفة الظلام كسبت مني بوتًا صلبًا لا يمكن قهره ☢️🔥 )${colors.reset}`);
+console.log(`${colors.bright}${colors.green}〖 صحيح أن طائفة الظلام تلاشـــت بسبب تفكك النخبة منها ولاكن تارخيها صنعت شبحًا لا يقهࢪ 💀🔥 〗${colors.reset}`);
 console.log(separator);
 
 app.post(`/webhook/${TOKEN}`, async (req, res) => {
@@ -46,7 +46,7 @@ app.post(`/webhook/${TOKEN}`, async (req, res) => {
 
         res.sendStatus(200);
     } catch (err) {
-        console.log(`${colors.red}( ايها زعيم 👑 نواجه مشكلة في تشغيل سرفر عليك بإصلاحها 👀🥂 )`);
+        console.log(`${colors.red}〖 شـادو اننا نواجــــه مشكلة بخصوص تشغيل الخـادم يجب ان يتم إصلاحها 〗`);
         console.error(err.message);
         res.sendStatus(500);
     }
