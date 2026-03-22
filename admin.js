@@ -1,19 +1,18 @@
 const axios = require('axios');
-const { king } = require('./king');
-
+const path = require('path');
+const King = require('./king');
+const king = new King();
+const joinPath = path.join(__dirname, 'join');
 const commands = new Map();
 
-for (const file of king.getFilesRecursive(__dirname)) {
-    if (file.endsWith('.js')) {
-        try {
-            delete require.cache[require.resolve(file)];
-            const cmd = require(file);
-            if (cmd.name && typeof cmd.execute === 'function') {
-                commands.set(cmd.name.toLowerCase(), cmd);
-                console.log(`✅ Loaded command: ${cmd.name}`);
-            }
-        } catch (err) {
-            console.log(`❌ Error loading ${file}: ${err.message}`);
+const joinFiles = king.getFilesWithContent(joinPath);
+for (const file of joinFiles) {
+    if (file.path.endsWith('.js')) {
+        delete require.cache[require.resolve(file.path)];
+        const required = require(file.path);
+        if (required.name && typeof required.execute === 'function') {
+            commands.set(required.name.toLowerCase(), required);
+            console.log(`✅ Loaded join module: ${required.name}`);
         }
     }
 }
@@ -27,27 +26,15 @@ async function handleUpdate(update) {
         const args = text.trim().split(/\s+/);
         const commandName = text.startsWith("/") ? args[0].slice(1).toLowerCase() : null;
 
-        if (commandName === 'start' && commands.has('start')) {
-            const cmd = commands.get('start');
-            return await cmd.execute(chatId, args, message, commands);
+        if (commandName === 'start') {
+            const joinCmd = commands.get('start');
+            if (joinCmd && typeof joinCmd.execute === 'function') {
+                await joinCmd.execute(chatId, args, message, commands);
+            }
         }
 
-        if (commandName && commands.has(commandName)) {
-            const cmd = commands.get(commandName);
-            return await cmd.execute(chatId, args, message, commands);
-        } else if (commandName) {
-            await axios.post(`https://api.telegram.org/bot${process.env.TOKEN}/sendMessage`, {
-                chat_id,
-                text: `❌ الأمر /${commandName} غير موجود`
-            });
-        } else {
-            await axios.post(`https://api.telegram.org/bot${process.env.TOKEN}/sendMessage`, {
-                chat_id,
-                text
-            });
-        }
     } catch (err) {
-        console.error("❌ Handle update error:", err);
+        console.error("❌ admin.js handleUpdate error:", err);
     }
 }
 
