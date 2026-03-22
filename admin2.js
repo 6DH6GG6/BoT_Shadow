@@ -1,47 +1,40 @@
 const axios = require('axios');
-const king = require('./king');
-
+const path = require('path');
+const King = require('./king');
+const king = new King();
 const commands = new Map();
 
-function loadMonitor() {
-    const files = king.getFilesWithContent();
-    for (const file of files) {
-        if (file.ext === '.js') {
-            try {
-                const cmd = king.requireFile(file.path);
-                if (cmd.name && typeof cmd.execute === 'function' && cmd.name.toLowerCase() === 'monitor') {
-                    commands.set(cmd.name.toLowerCase(), cmd);
-                    console.log(`👁️ Loaded monitor: ${cmd.name}`);
-                }
-            } catch (err) {
-                console.log(`❌ Error loading monitor ${file.name}: ${err.message}`);
-            }
+const monitorFolder = path.join(__dirname, 'monitor');
+const monitorFiles = king.getFilesWithContent(monitorFolder);
+
+for (const file of monitorFiles) {
+    if (file.path.endsWith('.js')) {
+        delete require.cache[require.resolve(file.path)];
+        const required = require(file.path);
+        if (required.name && typeof required.execute === 'function') {
+            commands.set(required.name.toLowerCase(), required);
+            console.log(`👁️ Loaded monitor module: ${required.name}`);
         }
     }
 }
 
-loadMonitor();
-
 async function handleUpdate(update) {
     try {
         if (!update.message) return;
-
         const message = update.message;
         const chatId = message.chat.id;
         const text = message.text || "";
         const args = text.trim().split(/\s+/);
         const commandName = text.startsWith("/") ? args[0].slice(1).toLowerCase() : null;
 
-        if (commandName === "monitor") {
-            if (commands.has("monitor")) {
-                const cmd = commands.get("monitor");
-                return await cmd.execute(chatId, args, message, commands);
-            }
+        if (commandName === "monitor" && commands.has("monitor")) {
+            const cmd = commands.get("monitor");
+            await cmd.execute(chatId, args, message, commands);
         }
 
     } catch (err) {
-        console.error("❌ admin2 error:", err);
+        console.error("❌ admin2.js handleUpdate error:", err);
     }
 }
 
-module.exports = { handleUpdate, commands, loadMonitor };
+module.exports = { handleUpdate, commands };
