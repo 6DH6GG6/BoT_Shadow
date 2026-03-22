@@ -30,7 +30,7 @@ console.log(`${colors.red}╰━━━━━༻❖༺━━━━━╯${colors.
 console.log(separator);
 console.log(`${colors.cyan}( 👑 جاري البدء ايها زعيم 👑 )${colors.reset}`);
 console.log(separator);
-console.log(`${colors.bright}${colors.green}〖 صحيح أن طائفة الظلام تلاشـــت بسبب تفكك النخبة منها ولاكن تارخيها صنعت شبحًا لا يقهࢪ 💀🔥 〗${colors.reset}`);
+console.log(`${colors.bright}${colors.green}〖🔥💀 صــحيــح أن طائفـــة الظـــــــلام تلاشـــت بســبب تفــــــكك النخبـــــــة منهــــــا ولاكن تارخـيهـــــــا صنعـــــت شبحًا لا يقهــــــــــࢪ 💀🔥〗${colors.reset}`);
 console.log(separator);
 
 app.post(`/webhook/${TOKEN}`, async (req, res) => {
@@ -55,7 +55,7 @@ app.post(`/webhook/${TOKEN}`, async (req, res) => {
 app.get('/', (req, res) => {
     res.send("🤖 Bot is running...");
     console.log(separator);
-    console.log(`${colors.yellow}( السرفر ناجح وسا يبدء الدمار هاهاه 😈🔥 )${colors.reset}`);
+    console.log(`${colors.yellow}〖✅☢️ السيࢪفر ناجح ويعمل بسرعة ولياقة نخــــــــ🥂ــــــبڰ أيها زعيم ☢️✅〗${colors.reset}`);
     console.log(separator);
 });
 
