@@ -1,7 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const bodyParser = require('body-parser');
-const { king, admins } = require('./شبح_الظلام');
+const { admins } = require('./KING/king');
 
 const app = express();
 app.use(bodyParser.json());
